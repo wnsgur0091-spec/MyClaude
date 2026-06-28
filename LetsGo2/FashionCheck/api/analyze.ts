@@ -16,15 +16,18 @@ const SITUATION_CONTEXT: Record<string, string> = {
 const PROMPT = (situation?: string) => `You are a savage but witty Korean fashion critic. Analyze this outfit photo.
 ${situation ? `Context: dressed for ${SITUATION_CONTEXT[situation] ?? situation}` : ''}
 
+IMPORTANT: First detect the gender of the person (남성/여성/unknown). Use ONLY gender-appropriate Korean shopping search terms in searchQuery fields. For 남성 use male clothing terms, for 여성 use female clothing terms.
+
 Return ONLY valid JSON (no markdown, no explanation):
 {
+  "gender": "<남성|여성|unknown>",
   "score": <integer 0-100>,
   "roast": "<Korean savage roast, max 35 chars, be funny & cutting>",
   "improvements": [
     {
       "item": "<clothing item in Korean e.g. 상의/하의/신발/가방/액세서리>",
       "comment": "<what's wrong, Korean, max 20 chars>",
-      "searchQuery": "<Korean search keyword for a better replacement>"
+      "searchQuery": "<gender-appropriate Korean search keyword for a better replacement>"
     }
   ],
   "stats": {
@@ -36,9 +39,19 @@ Return ONLY valid JSON (no markdown, no explanation):
   }
 }
 
-Score guide: 0-15=iron, 16-30=bronze, 31-50=silver, 51-70=gold, 71-85=platinum, 86-93=diamond, 94-100=challenger
-Roast style: sarcastic, slightly mean, funny. E.g. "이 조합은 진짜 눈 테러", "패션 테러리스트 등극 🎖", "다음엔 눈 감고 입어봐"
-Provide 1-3 improvement items only for the most offensive pieces. If outfit is great, give 0-1 improvements.`
+Score guide (MATCH roast tone to score range):
+- D grade 0-20: brutal savage roast
+- C grade 21-40: harsh criticism
+- B grade 41-60: mild criticism, some positives
+- A grade 61-80: mostly positive with one critique
+- S grade 81-99: backhanded compliment or genuine praise
+- S+ grade 100: pure admiration
+
+Roast MUST match score: high scores (81+) should NOT say "패션 테러리스트". Low scores (0-40) should be savage.
+Provide 1-3 improvement items only for the most offensive pieces. If outfit is great (80+), give 0-1 improvements.
+Gender-appropriate searchQuery:
+- 여성: "와이드 데님 팬츠 여성", "크롭 니트 여성", "메리제인 플랫슈즈 여성"
+- 남성: "슬림 슬랙스 남성", "오버핏 셔츠 남성", "첼시부츠 남성"
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })

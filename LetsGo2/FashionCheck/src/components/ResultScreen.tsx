@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { FashionResult, Improvement, TIER_CONFIG } from '../types/fashion'
+import { useCountUp } from '../hooks/useCountUp'
 import ResultCard from './ResultCard'
 import ImprovementModal from './ImprovementModal'
 import StatsPanel from './StatsPanel'
+import ShareModal from './ShareModal'
+import Fanfare from './Fanfare'
 
 interface Props {
   result: FashionResult
@@ -13,53 +16,32 @@ interface Props {
 const FIRST_SEEN_KEY = 'fashioncheck_seen_full'
 
 export default function ResultScreen({ result, imageUrl, onRetry }: Props) {
-  const cardRef = useRef<HTMLDivElement>(null)
   const [selectedImprovement, setSelectedImprovement] = useState<Improvement | null>(null)
   const [hasShared, setHasShared] = useState(false)
-  const [sharing, setSharing] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
 
-  const isHighScore = result.score >= 86
+  const isHighScore = result.score >= 81  // S등급 이상
   const isFirstTime = !localStorage.getItem(FIRST_SEEN_KEY)
   const showFull = isFirstTime || isHighScore || hasShared
+  const showFanfare = result.score >= 81  // Fix 7: S등급 이상 팡파레
 
-  useEffect(() => {
-    if (isFirstTime) localStorage.setItem(FIRST_SEEN_KEY, '1')
-  }, [isFirstTime])
+  if (isFirstTime) localStorage.setItem(FIRST_SEEN_KEY, '1')
 
-  const handleShare = async () => {
-    setSharing(true)
-    try {
-      const { default: html2canvas } = await import('html2canvas')
-      const canvas = await html2canvas(cardRef.current!, { useCORS: true, scale: 2, backgroundColor: null })
-      const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.92))
-      const file = new File([blob], 'fashioncheck.jpg', { type: 'image/jpeg' })
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `나의 패션력: ${result.score}점` })
-        setHasShared(true)
-      } else {
-        // fallback: download
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = 'fashioncheck.jpg'; a.click()
-        URL.revokeObjectURL(url)
-        setHasShared(true)
-      }
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') console.error(err)
-    } finally {
-      setSharing(false)
-    }
-  }
+  // Fix 7: 점수 카운트업 애니메이션
+  const animatedScore = useCountUp(result.score, 1600, 400)
 
   const cfg = TIER_CONFIG[result.tier]
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '20px 20px 0' }}>
+      {/* Fix 7: S등급 이상 팡파레 */}
+      {showFanfare && <Fanfare />}
+
+      <div style={{ display: 'flex', flexDirection: 'column', padding: '20px 20px 0', gap: 12 }}>
+
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800 }}>오늘의 결과 ⚡</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800 }}>오늘의 결과 ✦</h2>
           <button
             onClick={onRetry}
             style={{ fontSize: 13, color: 'var(--text-dim)', background: 'none', padding: '4px 8px' }}
@@ -69,89 +51,96 @@ export default function ResultScreen({ result, imageUrl, onRetry }: Props) {
         </div>
 
         {/* Result Card */}
-        <ResultCard ref={cardRef} result={result} imageUrl={imageUrl} showFull={showFull} />
+        <ResultCard
+          result={result}
+          imageUrl={imageUrl}
+          showFull={showFull}
+          onImprovementClick={setSelectedImprovement}
+        />
 
-        {/* Trigger hint (when not showing full) */}
+        {/* Fix 5: 힌트 문구 변경 */}
+        {result.improvements.length > 0 && (
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', margin: '-4px 0' }}>
+            사진 위 😈 을 탭하면 <strong style={{ color: 'var(--accent)' }}>패션왕의 추천을 볼 수 있어요</strong>
+          </p>
+        )}
+
+        {/* 패션왕의 조언 — 항상 표시 */}
+        <div style={{
+          padding: '14px 16px', background: 'var(--surface)', borderRadius: 14,
+          border: '1px solid rgba(61,126,255,0.3)',
+        }}>
+          <p style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginBottom: 5 }}>
+            👑 패션왕의 조언
+          </p>
+          <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>"{result.roast}"</p>
+        </div>
+
+        {/* 트리거 힌트 — 공유 전 카드 오버레이 유도 */}
         {!showFull && (
           <div style={{
-            marginTop: 12, padding: '10px 14px',
-            background: 'var(--surface)', borderRadius: 12,
+            padding: '10px 14px', background: 'var(--surface)', borderRadius: 12,
             fontSize: 12, color: 'var(--text-dim)', textAlign: 'center',
           }}>
-            공유하거나 고득점을 받으면 <strong style={{ color: 'var(--accent)' }}>상세 결과</strong>가 공개돼요 👀
+            {result.score >= 61
+              ? '📸 SNS로 친구들에게도 자랑해보세요!'
+              : '📸 SNS로 친구들한테도 피드백 받아보세요!'}
           </div>
         )}
 
-        {/* Tier + Score row */}
-        {showFull && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <div style={{
-              flex: 1, background: 'var(--surface)', borderRadius: 14, padding: '14px',
-              border: `1px solid ${cfg.color}33`,
-              boxShadow: `0 0 20px ${cfg.glow}`,
-            }}>
-              <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션 티어</p>
-              <p style={{ fontSize: 20, fontWeight: 900, color: cfg.color, marginTop: 2 }}>
-                {cfg.emoji} {cfg.label}
-              </p>
-            </div>
-            <div style={{
-              flex: 1, background: 'var(--surface)', borderRadius: 14, padding: '14px',
-            }}>
-              <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션력</p>
-              <p style={{ fontSize: 28, fontWeight: 900, marginTop: 2 }}>{result.score}<span style={{ fontSize: 14, color: 'var(--text-dim)' }}>/100</span></p>
-            </div>
+        {/* Fix 2: 모든 등급에서 항상 표시 */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{
+            flex: 1, background: 'var(--surface)', borderRadius: 14, padding: 14,
+            border: `1px solid ${cfg.color}44`,
+            boxShadow: `0 0 20px ${cfg.glow}`,
+          }}>
+            <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션 티어</p>
+            <p style={{ fontSize: 20, fontWeight: 900, color: cfg.color, marginTop: 2 }}>
+              {cfg.emoji} {cfg.label}
+            </p>
           </div>
-        )}
-
-        {/* Improvements */}
-        {showFull && result.improvements.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10 }}>보완할 부분 (클릭해서 쇼핑 연결)</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {result.improvements.map((imp, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedImprovement(imp)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    background: 'var(--surface)', borderRadius: 12, padding: '12px 14px',
-                    textAlign: 'left', color: 'var(--text)',
-                  }}
-                >
-                  <span style={{ fontSize: 22, flexShrink: 0 }}>😈</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600 }}>{imp.item}</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 1 }}>{imp.comment}</p>
-                  </div>
-                  <span style={{ fontSize: 16, color: 'var(--text-dim)' }}>→</span>
-                </button>
-              ))}
-            </div>
+          <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 14, padding: 14 }}>
+            <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션력</p>
+            <p style={{ fontSize: 28, fontWeight: 900, marginTop: 2, color: cfg.color }}>
+              {animatedScore}
+              <span style={{ fontSize: 14, color: 'var(--text-dim)', fontWeight: 400 }}>/100</span>
+            </p>
           </div>
-        )}
+        </div>
 
-        {/* Share Button */}
+        {/* 공유 버튼 */}
         <button
-          onClick={handleShare}
-          disabled={sharing}
+          onClick={() => setShowShareModal(true)}
           style={{
-            marginTop: 16, width: '100%', padding: '15px',
-            borderRadius: 14, fontSize: 15, fontWeight: 700,
-            background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)',
-            color: '#fff', opacity: sharing ? 0.7 : 1,
+            width: '100%', padding: 15, borderRadius: 14, fontSize: 15, fontWeight: 700,
+            background: 'linear-gradient(135deg, #1D4ED8, #3D7EFF, #60A5FA)',
+            color: '#fff', boxShadow: '0 4px 20px rgba(61,126,255,0.35)',
           }}
         >
-          {sharing ? '캡처 중...' : '📸 SNS에 공유하기'}
+          📸 SNS에 공유하기
         </button>
+
+        {/* Fix 2: 구분선 + 상세 스탯 */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+          <StatsPanel stats={result.stats} />
+        </div>
       </div>
 
-      {/* Stats Panel (always visible, below scroll) */}
-      <div style={{ marginTop: 20 }}>
-        <StatsPanel stats={result.stats} />
-      </div>
-
-      <ImprovementModal item={selectedImprovement} onClose={() => setSelectedImprovement(null)} />
+      {/* Fix 4: gender 전달 */}
+      <ImprovementModal
+        item={selectedImprovement}
+        gender={result.gender}
+        onClose={() => setSelectedImprovement(null)}
+      />
+      {showShareModal && (
+        <ShareModal
+          result={result}
+          imageUrl={imageUrl}
+          onClose={() => setShowShareModal(false)}
+          onShared={() => setHasShared(true)}
+        />
+      )}
     </>
   )
 }

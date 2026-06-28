@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
-import { Improvement, getShopLinks } from '../types/fashion'
+import { Gender, Improvement, getShopLinks } from '../types/fashion'
 
 interface Props {
   item: Improvement | null
+  gender?: Gender
   onClose: () => void
 }
 
-export default function ImprovementModal({ item, onClose }: Props) {
+export default function ImprovementModal({ item, gender, onClose }: Props) {
   useEffect(() => {
     if (item) document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
@@ -48,7 +49,7 @@ export default function ImprovementModal({ item, onClose }: Props) {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {getShopLinks(item.searchQuery).map((shop) => (
+          {getShopLinks(item.searchQuery, gender).map((shop) => (
             <a
               key={shop.name}
               href={shop.url}

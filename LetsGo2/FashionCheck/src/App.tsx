@@ -16,18 +16,24 @@ export default function App() {
     setError(null)
 
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64, situation }),
-      })
+      let data: FashionResult
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `HTTP ${res.status}`)
+      if (import.meta.env.VITE_MOCK === 'true') {
+        const { mockAnalyze } = await import('./mockAnalyze')
+        data = await mockAnalyze(situation)
+      } else {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64, situation }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error ?? `HTTP ${res.status}`)
+        }
+        data = await res.json()
       }
 
-      const data: FashionResult = await res.json()
       setResult(data)
       setState('result')
     } catch (err) {
