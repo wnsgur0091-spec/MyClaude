@@ -83,15 +83,24 @@ export default function UploadScreen({ onAnalyze }: Props) {
 
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 16, margin: '0 auto 10px',
+        <div className="cartoon-card" style={{
+          width: 64, height: 64, borderRadius: 18, margin: '0 auto 12px',
           background: 'linear-gradient(135deg, #1D4ED8, #60A5FA)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, boxShadow: '0 4px 20px rgba(61,126,255,0.35)',
+          fontSize: 32,
         }}>👗</div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px' }}>FashionCheck</h1>
-        <p style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
-          오늘의 패션력을 패션왕이 판단해줄게요
+        <h1 style={{
+          fontSize: 24, fontWeight: 900, letterSpacing: '-0.5px',
+          WebkitTextStroke: '0.5px rgba(0,0,0,0.4)',
+        }}>FashionCheck</h1>
+        <p style={{
+          fontSize: 13, color: 'var(--text-dim)', marginTop: 5,
+          display: 'inline-block',
+          background: 'var(--surface2)',
+          padding: '4px 10px', borderRadius: 20,
+          border: '1.5px solid var(--border)',
+        }}>
+          오늘의 패션력을 패션왕이 판단해줄게요 👑
         </p>
       </div>
 
@@ -104,7 +113,8 @@ export default function UploadScreen({ onAnalyze }: Props) {
           position: 'relative', width: '100%', aspectRatio: '3/4',
           borderRadius: 20, overflow: 'hidden',
           background: preview ? 'transparent' : 'var(--surface)',
-          border: preview ? 'none' : '2px dashed rgba(61,126,255,0.4)',
+          border: preview ? '3px solid #000' : '3px dashed rgba(61,126,255,0.6)',
+        boxShadow: preview ? '5px 5px 0 #000' : 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: preview ? 'default' : 'pointer', flexShrink: 0,
         }}
@@ -181,12 +191,12 @@ export default function UploadScreen({ onAnalyze }: Props) {
       <button
         disabled={!imageData}
         onClick={() => imageData && onAnalyze(imageData, situation ?? undefined)}
+        className={imageData ? 'cartoon-btn' : ''}
         style={{
-          width: '100%', padding: '16px', borderRadius: 14, fontSize: 16, fontWeight: 700,
+          width: '100%', padding: '16px', borderRadius: 14, fontSize: 16, fontWeight: 800,
           background: imageData ? 'linear-gradient(135deg, #1D4ED8, #3D7EFF, #60A5FA)' : 'var(--surface2)',
           color: imageData ? '#fff' : 'var(--text-dim)',
-          transition: 'all 0.2s', letterSpacing: '-0.3px',
-          boxShadow: imageData ? '0 4px 20px rgba(61,126,255,0.4)' : 'none',
+          letterSpacing: '-0.3px',
         }}
       >
         패션력 측정하기 ✦

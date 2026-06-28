@@ -109,12 +109,18 @@ export default function ShareModal({ result, imageUrl, onClose, onShared }: Prop
         {/* Handle */}
         <div style={{ width: 36, height: 4, background: '#333', borderRadius: 99, margin: '14px auto 0' }} />
 
-        {/* AI 카드 프리뷰 */}
-        <div style={{ padding: '18px 20px 0' }}>
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 10 }}>공유할 AI 카드 미리보기</p>
+        {/* 공유 카드 미리보기 — 9:16 비율로 중앙 표시 */}
+        <div style={{ padding: '18px 20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <p style={{ fontSize: 13, color: '#888', marginBottom: 10, alignSelf: 'flex-start' }}>
+            공유할 카드 미리보기
+          </p>
           <div style={{
-            width: '100%', aspectRatio: '3/4', borderRadius: 16, overflow: 'hidden',
-            background: '#111', position: 'relative', maxHeight: 200, objectFit: 'cover',
+            width: '58%',
+            aspectRatio: '9/16',
+            borderRadius: 16, overflow: 'hidden',
+            background: '#111', position: 'relative',
+            border: '2px solid #333',
+            boxShadow: '4px 4px 0 #000',
           }}>
             {genState === 'generating' && (
               <div style={{
@@ -123,11 +129,11 @@ export default function ShareModal({ result, imageUrl, onClose, onShared }: Prop
                 gap: 10, background: '#0a0a0a',
               }}>
                 <div style={{ fontSize: 32, animation: 'spin 1.5s linear infinite' }}>✨</div>
-                <p style={{ fontSize: 13, color: '#888' }}>AI 카드 생성 중...</p>
+                <p style={{ fontSize: 12, color: '#888' }}>카드 생성 중...</p>
               </div>
             )}
             {aiImageUrl && (
-              <img src={aiImageUrl} alt="AI 카드" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={aiImageUrl} alt="공유 카드" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             )}
           </div>
         </div>

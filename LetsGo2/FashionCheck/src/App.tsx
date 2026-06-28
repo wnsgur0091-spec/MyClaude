@@ -69,6 +69,31 @@ export default function App() {
           </button>
         </div>
       )}
+
+      {/* 인스타그램 고정 푸터 */}
+      <a
+        href="https://www.instagram.com/team.letsgo_fit/"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: 430,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          padding: '10px 0 max(10px, env(safe-area-inset-bottom))',
+          background: 'rgba(10,10,10,0.88)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1.5px solid #000',
+          textDecoration: 'none',
+          zIndex: 50,
+        }}
+      >
+        <span style={{ fontSize: 16 }}>📸</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#E1306C' }}>@team.letsgo_fit</span>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>팔로우하고 패션 정보 받기</span>
+      </a>
+
+      {/* 푸터 높이만큼 하단 여백 */}
+      <div style={{ height: 44 }} />
     </div>
   )
 }

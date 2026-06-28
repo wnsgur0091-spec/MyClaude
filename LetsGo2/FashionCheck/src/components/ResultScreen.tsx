@@ -65,20 +65,22 @@ export default function ResultScreen({ result, imageUrl, onRetry }: Props) {
           </p>
         )}
 
-        {/* 패션왕의 조언 — 항상 표시 */}
-        <div style={{
-          padding: '14px 16px', background: 'var(--surface)', borderRadius: 14,
-          border: '1px solid rgba(61,126,255,0.3)',
-        }}>
-          <p style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600, marginBottom: 5 }}>
-            👑 패션왕의 조언
-          </p>
-          <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>"{result.roast}"</p>
+        {/* 패션왕의 조언 — 말풍선 */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, paddingLeft: 10 }}>
+            <span style={{ fontSize: 22, filter: 'drop-shadow(1px 1px 0 #000)' }}>👑</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', letterSpacing: '0.5px' }}>패션왕의 조언</span>
+          </div>
+          <div className="speech-bubble" style={{
+            padding: '14px 16px', background: 'var(--surface)',
+          }}>
+            <p style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>"{result.roast}"</p>
+          </div>
         </div>
 
-        {/* 트리거 힌트 — 공유 전 카드 오버레이 유도 */}
+        {/* 트리거 힌트 */}
         {!showFull && (
-          <div style={{
+          <div className="cartoon-card" style={{
             padding: '10px 14px', background: 'var(--surface)', borderRadius: 12,
             fontSize: 12, color: 'var(--text-dim)', textAlign: 'center',
           }}>
@@ -88,21 +90,24 @@ export default function ResultScreen({ result, imageUrl, onRetry }: Props) {
           </div>
         )}
 
-        {/* Fix 2: 모든 등급에서 항상 표시 */}
+        {/* 티어 + 점수 카드 */}
         <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{
+          <div className="cartoon-card" style={{
             flex: 1, background: 'var(--surface)', borderRadius: 14, padding: 14,
-            border: `1px solid ${cfg.color}44`,
-            boxShadow: `0 0 20px ${cfg.glow}`,
+            borderColor: cfg.color + ' !important',
           }}>
-            <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션 티어</p>
-            <p style={{ fontSize: 20, fontWeight: 900, color: cfg.color, marginTop: 2 }}>
+            <p style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700 }}>패션 티어</p>
+            <p style={{ fontSize: 22, fontWeight: 900, color: cfg.color, marginTop: 4,
+              filter: 'drop-shadow(1px 1px 0 rgba(0,0,0,0.5))' }}>
               {cfg.emoji} {cfg.label}
             </p>
           </div>
-          <div style={{ flex: 1, background: 'var(--surface)', borderRadius: 14, padding: 14 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-dim)' }}>패션력</p>
-            <p style={{ fontSize: 28, fontWeight: 900, marginTop: 2, color: cfg.color }}>
+          <div className="cartoon-card" style={{
+            flex: 1, background: 'var(--surface)', borderRadius: 14, padding: 14,
+          }}>
+            <p style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 700 }}>패션력</p>
+            <p style={{ fontSize: 30, fontWeight: 900, marginTop: 4, color: cfg.color,
+              filter: 'drop-shadow(1px 1px 0 rgba(0,0,0,0.5))' }}>
               {animatedScore}
               <span style={{ fontSize: 14, color: 'var(--text-dim)', fontWeight: 400 }}>/100</span>
             </p>
@@ -112,10 +117,11 @@ export default function ResultScreen({ result, imageUrl, onRetry }: Props) {
         {/* 공유 버튼 */}
         <button
           onClick={() => setShowShareModal(true)}
+          className="cartoon-btn"
           style={{
-            width: '100%', padding: 15, borderRadius: 14, fontSize: 15, fontWeight: 700,
+            width: '100%', padding: 15, borderRadius: 14, fontSize: 15, fontWeight: 800,
             background: 'linear-gradient(135deg, #1D4ED8, #3D7EFF, #60A5FA)',
-            color: '#fff', boxShadow: '0 4px 20px rgba(61,126,255,0.35)',
+            color: '#fff',
           }}
         >
           📸 SNS에 공유하기
