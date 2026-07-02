@@ -1,0 +1,29 @@
+name: today_guide
+description: "오늘의 지침서 - 일정 기반 교통/옷차림/준비물 AI 비서"
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+  http: ^1.2.2
+  shared_preferences: ^2.3.3
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  intl: ^0.19.0
+  google_sign_in: ^6.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
