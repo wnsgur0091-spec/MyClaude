@@ -31,7 +31,7 @@ class AppTheme {
       textTheme: base.textTheme.apply(
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
-        fontFamily: 'monospace',
+        fontFamily: 'Jua',
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,

@@ -1,4 +1,4 @@
-import 'calendar_provider_type.dart';
+import 'event_attendee_role.dart';
 
 enum Gender {
   female,
@@ -36,13 +36,13 @@ class UserSettings {
   final double? workLat;
   final double? workLng;
 
-  final CalendarProviderType calendarProvider;
+  /// 연동된 TimeTree 캘린더 id/이름(표시용). 로그인 자격증명은 별도로
+  /// 기기에 암호화 저장하고(TimeTreeCredentialStore) 여기엔 담지 않는다.
+  final String? timeTreeCalendarId;
+  final String? timeTreeCalendarName;
 
-  /// TimeTree는 공식 3rd-party 조회 API가 없어 캘린더 공유 링크(webcal/ics)를 사용한다.
-  final String? timeTreeIcsUrl;
-
-  /// Google Calendar 연동 시 로그인된 계정 표시용
-  final String? googleAccountEmail;
+  /// TimeTree 라벨(색상) id -> 이 라벨이 누구 일정인지.
+  final Map<int, EventAttendeeRole> timeTreeLabelRoles;
 
   final bool onboardingCompleted;
 
@@ -56,9 +56,9 @@ class UserSettings {
     this.workAddress,
     this.workLat,
     this.workLng,
-    this.calendarProvider = CalendarProviderType.googleCalendar,
-    this.timeTreeIcsUrl,
-    this.googleAccountEmail,
+    this.timeTreeCalendarId,
+    this.timeTreeCalendarName,
+    this.timeTreeLabelRoles = const {},
     this.onboardingCompleted = false,
   });
 
@@ -66,6 +66,8 @@ class UserSettings {
   int get alarmMinute => alarmMinuteOfDay % 60;
 
   bool get hasFallbackAddress => homeAddress != null || workAddress != null;
+
+  bool get hasTimeTreeCalendar => timeTreeCalendarId != null;
 
   UserSettings copyWith({
     int? alarmMinuteOfDay,
@@ -77,9 +79,9 @@ class UserSettings {
     String? workAddress,
     double? workLat,
     double? workLng,
-    CalendarProviderType? calendarProvider,
-    String? timeTreeIcsUrl,
-    String? googleAccountEmail,
+    String? timeTreeCalendarId,
+    String? timeTreeCalendarName,
+    Map<int, EventAttendeeRole>? timeTreeLabelRoles,
     bool? onboardingCompleted,
   }) {
     return UserSettings(
@@ -92,9 +94,9 @@ class UserSettings {
       workAddress: workAddress ?? this.workAddress,
       workLat: workLat ?? this.workLat,
       workLng: workLng ?? this.workLng,
-      calendarProvider: calendarProvider ?? this.calendarProvider,
-      timeTreeIcsUrl: timeTreeIcsUrl ?? this.timeTreeIcsUrl,
-      googleAccountEmail: googleAccountEmail ?? this.googleAccountEmail,
+      timeTreeCalendarId: timeTreeCalendarId ?? this.timeTreeCalendarId,
+      timeTreeCalendarName: timeTreeCalendarName ?? this.timeTreeCalendarName,
+      timeTreeLabelRoles: timeTreeLabelRoles ?? this.timeTreeLabelRoles,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
@@ -109,9 +111,9 @@ class UserSettings {
         'workAddress': workAddress,
         'workLat': workLat,
         'workLng': workLng,
-        'calendarProvider': calendarProvider.name,
-        'timeTreeIcsUrl': timeTreeIcsUrl,
-        'googleAccountEmail': googleAccountEmail,
+        'timeTreeCalendarId': timeTreeCalendarId,
+        'timeTreeCalendarName': timeTreeCalendarName,
+        'timeTreeLabelRoles': timeTreeLabelRoles.map((id, role) => MapEntry('$id', role.name)),
         'onboardingCompleted': onboardingCompleted,
       };
 
@@ -125,11 +127,11 @@ class UserSettings {
         workAddress: json['workAddress'] as String?,
         workLat: (json['workLat'] as num?)?.toDouble(),
         workLng: (json['workLng'] as num?)?.toDouble(),
-        calendarProvider: CalendarProviderType.fromName(
-          json['calendarProvider'] as String? ?? 'googleCalendar',
+        timeTreeCalendarId: json['timeTreeCalendarId'] as String?,
+        timeTreeCalendarName: json['timeTreeCalendarName'] as String?,
+        timeTreeLabelRoles: (json['timeTreeLabelRoles'] as Map<String, dynamic>? ?? const {}).map(
+          (id, role) => MapEntry(int.parse(id), EventAttendeeRole.fromName(role as String?)),
         ),
-        timeTreeIcsUrl: json['timeTreeIcsUrl'] as String?,
-        googleAccountEmail: json['googleAccountEmail'] as String?,
         onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
       );
 }

@@ -43,6 +43,16 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     _future = _load();
   }
 
+  @override
+  void didUpdateWidget(covariant TodayGuideScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.settings != widget.settings) {
+      setState(() {
+        _future = _load();
+      });
+    }
+  }
+
   Future<TodayGuideResult> _load() {
     return _guideEngine.buildTodayGuide(
       settings: widget.settings,
@@ -51,8 +61,15 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    late final Future<TodayGuideResult> next;
+    setState(() {
+      next = _load();
+      _future = next;
+    });
+    // setState의 콜백은 반환값이 없어야 한다(대입식을 화살표 함수 몸체로 쓰면
+    // Future를 반환하게 되어 프레임워크가 "callback argument returned a Future"
+    // 오류를 던진다). 그래서 대입은 블록 안에서, await는 밖에서 따로 한다.
+    await next;
   }
 
   @override
@@ -71,7 +88,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                   return _buildLoading();
                 }
                 if (snapshot.hasError) {
-                  return _buildError('${snapshot.error}');
+                  return _buildError(_formatError(snapshot.error));
                 }
                 return _buildResult(snapshot.data!);
               },
@@ -105,6 +122,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   }
 
   Widget _buildError(String message) {
+    final needsSettings = message.contains('연결되어 있지 않습니다') || message.contains('로그인해주세요');
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
@@ -122,13 +140,29 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                       textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
                 ),
                 const SizedBox(height: 16),
-                OutlinedButton(onPressed: _refresh, child: const Text('다시 시도')),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(onPressed: _refresh, child: const Text('다시 시도')),
+                    if (needsSettings) ...[
+                      const SizedBox(width: 12),
+                      FilledButton(onPressed: widget.onOpenSettings, child: const Text('설정으로 이동')),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  /// StateError 등의 기술적인 "Bad state: " 접두사를 걷어내고 사용자에게 보여준다.
+  String _formatError(Object? error) {
+    final text = '$error';
+    const prefix = 'Bad state: ';
+    return text.startsWith(prefix) ? text.substring(prefix.length) : text;
   }
 
   Widget _buildResult(TodayGuideResult result) {

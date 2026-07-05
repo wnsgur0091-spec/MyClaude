@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../models/calendar_provider_type.dart';
+import '../../models/event_attendee_role.dart';
 import '../../models/user_settings.dart';
-import '../../services/calendar/google_calendar_service.dart';
 import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/starfield_background.dart';
+import '../../widgets/timetree_connect_section.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.settings, required this.onSave});
@@ -19,21 +19,21 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _locationService = LocationService();
-  final _googleCalendarService = GoogleCalendarService();
 
   late TimeOfDay _alarmTime;
   late Gender _gender;
   late final TextEditingController _ageController;
   late final TextEditingController _homeAddressController;
   late final TextEditingController _workAddressController;
-  late final TextEditingController _icsUrlController;
-  late CalendarProviderType _calendarProvider;
   double? _homeLat;
   double? _homeLng;
   double? _workLat;
   double? _workLng;
-  String? _googleAccountEmail;
   bool _saving = false;
+
+  String? _timeTreeCalendarId;
+  String? _timeTreeCalendarName;
+  Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
 
   @override
   void initState() {
@@ -44,13 +44,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _ageController = TextEditingController(text: s.age > 0 ? '${s.age}' : '');
     _homeAddressController = TextEditingController(text: s.homeAddress ?? '');
     _workAddressController = TextEditingController(text: s.workAddress ?? '');
-    _icsUrlController = TextEditingController(text: s.timeTreeIcsUrl ?? '');
-    _calendarProvider = s.calendarProvider;
     _homeLat = s.homeLat;
     _homeLng = s.homeLng;
     _workLat = s.workLat;
     _workLng = s.workLng;
-    _googleAccountEmail = s.googleAccountEmail ?? _googleCalendarService.currentUser?.email;
+    _timeTreeCalendarId = s.timeTreeCalendarId;
+    _timeTreeCalendarName = s.timeTreeCalendarName;
+    _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
   }
 
   @override
@@ -58,7 +58,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _ageController.dispose();
     _homeAddressController.dispose();
     _workAddressController.dispose();
-    _icsUrlController.dispose();
     super.dispose();
   }
 
@@ -102,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }),
                     ),
                     const SizedBox(height: 24),
-                    _sectionTitle('일정 관리 앱'),
+                    _sectionTitle('TimeTree 연동'),
                     _calendarProviderSection(),
                   ],
                 ),
@@ -200,41 +199,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _calendarProviderSection() {
-    return Column(
-      children: [
-        RadioListTile<CalendarProviderType>(
-          value: CalendarProviderType.googleCalendar,
-          groupValue: _calendarProvider,
-          onChanged: (v) => setState(() => _calendarProvider = v!),
-          activeColor: AppColors.neonCyan,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Google Calendar', style: TextStyle(color: AppColors.textPrimary)),
-        ),
-        RadioListTile<CalendarProviderType>(
-          value: CalendarProviderType.timeTree,
-          groupValue: _calendarProvider,
-          onChanged: (v) => setState(() => _calendarProvider = v!),
-          activeColor: AppColors.neonCyan,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('TimeTree', style: TextStyle(color: AppColors.textPrimary)),
-        ),
-        const SizedBox(height: 8),
-        if (_calendarProvider == CalendarProviderType.googleCalendar)
-          FilledButton.icon(
-            onPressed: () async {
-              final account = await _googleCalendarService.signIn();
-              setState(() => _googleAccountEmail = account?.email);
-            },
-            icon: const Icon(Icons.login),
-            label: Text(_googleAccountEmail == null ? 'Google 계정 연결' : '연결됨: $_googleAccountEmail'),
-          ),
-        if (_calendarProvider == CalendarProviderType.timeTree)
-          TextField(
-            controller: _icsUrlController,
-            style: const TextStyle(color: AppColors.textPrimary),
-            decoration: const InputDecoration(labelText: 'TimeTree 공유 캘린더 링크(ics/webcal)'),
-          ),
-      ],
+    return TimeTreeConnectSection(
+      initialCalendarId: _timeTreeCalendarId,
+      initialCalendarName: _timeTreeCalendarName,
+      initialLabelRoles: _timeTreeLabelRoles,
+      onChanged: ({required calendarId, required calendarName, required labelRoles}) {
+        setState(() {
+          _timeTreeCalendarId = calendarId;
+          _timeTreeCalendarName = calendarName;
+          _timeTreeLabelRoles = labelRoles;
+        });
+      },
     );
   }
 
@@ -250,9 +225,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       workAddress: _workAddressController.text.trim().isEmpty ? null : _workAddressController.text.trim(),
       workLat: _workLat,
       workLng: _workLng,
-      calendarProvider: _calendarProvider,
-      timeTreeIcsUrl: _icsUrlController.text.trim().isEmpty ? null : _icsUrlController.text.trim(),
-      googleAccountEmail: _googleAccountEmail,
+      timeTreeCalendarId: _timeTreeCalendarId,
+      timeTreeCalendarName: _timeTreeCalendarName,
+      timeTreeLabelRoles: _timeTreeLabelRoles,
       onboardingCompleted: true,
     );
     await widget.onSave(updated);

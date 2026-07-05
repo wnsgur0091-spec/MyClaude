@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../models/calendar_provider_type.dart';
+import '../../models/event_attendee_role.dart';
 import '../../models/user_settings.dart';
-import '../../services/calendar/google_calendar_service.dart';
 import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/starfield_background.dart';
+import '../../widgets/timetree_connect_section.dart';
 import 'widgets/onboarding_notice_card.dart';
 
 /// 최초 실행 시 초기 셋팅 마법사.
@@ -23,27 +23,27 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   final _locationService = LocationService();
-  final _googleCalendarService = GoogleCalendarService();
 
   final _ageController = TextEditingController();
   final _homeAddressController = TextEditingController();
   final _workAddressController = TextEditingController();
-  final _icsUrlController = TextEditingController();
 
   int _stepIndex = 0;
   bool _notice1Ack = false;
   bool _notice2Ack = false;
   TimeOfDay _alarmTime = const TimeOfDay(hour: 8, minute: 0);
   Gender _gender = Gender.other;
-  CalendarProviderType _calendarProvider = CalendarProviderType.googleCalendar;
 
   double? _homeLat;
   double? _homeLng;
   double? _workLat;
   double? _workLng;
   bool _resolvingAddress = false;
-  String? _googleAccountEmail;
   bool _saving = false;
+
+  String? _timeTreeCalendarId;
+  String? _timeTreeCalendarName;
+  Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
 
   static const _stepCount = 5;
 
@@ -53,7 +53,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _ageController.dispose();
     _homeAddressController.dispose();
     _workAddressController.dispose();
-    _icsUrlController.dispose();
     super.dispose();
   }
 
@@ -68,8 +67,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 3:
         return _homeAddressController.text.trim().isNotEmpty || _workAddressController.text.trim().isNotEmpty;
       case 4:
-        return _calendarProvider == CalendarProviderType.googleCalendar ||
-            _icsUrlController.text.trim().isNotEmpty;
+        return _timeTreeCalendarId != null;
       default:
         return true;
     }
@@ -279,7 +277,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: TextField(
                 controller: controller,
                 style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(hintText: '도로명 주소를 입력해주세요'),
+                decoration: const InputDecoration(hintText: '도로명 또는 지번 주소를 입력해주세요'),
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -308,68 +306,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildCalendarProviderStep() {
     return _stepScaffold(
-      title: '일정 관리 앱',
-      subtitle: '오늘의 지침서가 일정을 읽어올 서비스를 선택해주세요.',
+      title: 'TimeTree 연동',
+      subtitle: '둘이 같이 쓰는 TimeTree 공유 캘린더를 연결해주세요.',
       children: [
-        RadioListTile<CalendarProviderType>(
-          value: CalendarProviderType.googleCalendar,
-          groupValue: _calendarProvider,
-          onChanged: (v) => setState(() => _calendarProvider = v!),
-          activeColor: AppColors.neonCyan,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Google Calendar', style: TextStyle(color: AppColors.textPrimary)),
-        ),
-        RadioListTile<CalendarProviderType>(
-          value: CalendarProviderType.timeTree,
-          groupValue: _calendarProvider,
-          onChanged: (v) => setState(() => _calendarProvider = v!),
-          activeColor: AppColors.neonCyan,
-          contentPadding: EdgeInsets.zero,
-          title: const Text('TimeTree', style: TextStyle(color: AppColors.textPrimary)),
-        ),
-        const SizedBox(height: 16),
-        if (_calendarProvider == CalendarProviderType.googleCalendar) _buildGoogleSignInBlock(),
-        if (_calendarProvider == CalendarProviderType.timeTree) _buildTimeTreeIcsBlock(),
-      ],
-    );
-  }
-
-  Widget _buildGoogleSignInBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        FilledButton.icon(
-          onPressed: () async {
-            final account = await _googleCalendarService.signIn();
-            setState(() => _googleAccountEmail = account?.email);
+        TimeTreeConnectSection(
+          initialCalendarId: _timeTreeCalendarId,
+          initialCalendarName: _timeTreeCalendarName,
+          initialLabelRoles: _timeTreeLabelRoles,
+          onChanged: ({required calendarId, required calendarName, required labelRoles}) {
+            setState(() {
+              _timeTreeCalendarId = calendarId;
+              _timeTreeCalendarName = calendarName;
+              _timeTreeLabelRoles = labelRoles;
+            });
           },
-          icon: const Icon(Icons.login),
-          label: Text(_googleAccountEmail == null ? 'Google 계정 연결' : '연결됨: $_googleAccountEmail'),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '연결은 나중에 설정 화면에서도 다시 할 수 있어요.',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTimeTreeIcsBlock() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'TimeTree는 앱 간 연동용 공개 API를 제공하지 않아요. TimeTree 앱에서 '
-          '캘린더 상세 > 캘린더 내보내기로 얻은 공유 링크(ics/webcal)를 붙여넣어주세요.',
-          style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _icsUrlController,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: 'https://timetreeapp.com/calendars/xxxx.ics'),
-          onChanged: (_) => setState(() {}),
         ),
       ],
     );
@@ -431,9 +381,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       workAddress: _workAddressController.text.trim().isEmpty ? null : _workAddressController.text.trim(),
       workLat: _workLat,
       workLng: _workLng,
-      calendarProvider: _calendarProvider,
-      timeTreeIcsUrl: _icsUrlController.text.trim().isEmpty ? null : _icsUrlController.text.trim(),
-      googleAccountEmail: _googleAccountEmail,
+      timeTreeCalendarId: _timeTreeCalendarId,
+      timeTreeCalendarName: _timeTreeCalendarName,
+      timeTreeLabelRoles: _timeTreeLabelRoles,
       onboardingCompleted: true,
     );
     await widget.onComplete(settings);

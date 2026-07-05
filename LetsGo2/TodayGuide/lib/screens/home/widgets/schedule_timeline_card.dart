@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/event_attendee_role.dart';
 import '../../../models/today_guide_result.dart';
 import '../../../theme/app_theme.dart';
 import 'transport_card.dart';
@@ -35,6 +36,11 @@ class ScheduleTimelineCard extends StatelessWidget {
               if (event.isAllDay) ...[
                 const SizedBox(width: 8),
                 const Text('종일', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+              ],
+              if (event.attendeeRole == EventAttendeeRole.partner ||
+                  event.attendeeRole == EventAttendeeRole.both) ...[
+                const SizedBox(width: 8),
+                _RoleTag(role: event.attendeeRole),
               ],
             ],
           ),
@@ -83,5 +89,24 @@ class ScheduleTimelineCard extends StatelessWidget {
   String _formatRange(DateTime start, DateTime end) {
     String fmt(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     return '${fmt(start)} - ${fmt(end)}';
+  }
+}
+
+class _RoleTag extends StatelessWidget {
+  const _RoleTag({required this.role});
+
+  final EventAttendeeRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.spacePanelAlt,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.neonPurple.withOpacity(0.5)),
+      ),
+      child: Text(role.label, style: const TextStyle(color: AppColors.neonPurple, fontSize: 10)),
+    );
   }
 }

@@ -69,7 +69,7 @@ class GuideEngine {
       RoutePlan? carPlan;
       RoutePlan? transitPlan;
 
-      final destination = await _resolveDestination(event, notices);
+      final destination = event.attendeeRole.includeInOwnRoute ? await _resolveDestination(event, notices) : null;
       if (destination != null) {
         final carMinutes = await _safeCall(
           () => drivingRouteService.estimateDurationMinutes(

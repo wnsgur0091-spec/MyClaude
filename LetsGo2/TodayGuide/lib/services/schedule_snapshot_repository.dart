@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/event_attendee_role.dart';
 import '../models/schedule_event.dart';
 
 /// 온보딩 고지사항("당일 추가/수정된 일정은 반영되지 않는다")을 지키기 위한 캐시.
@@ -42,6 +43,7 @@ class ScheduleSnapshotRepository {
         'end': e.end.toIso8601String(),
         'location': e.location,
         'isAllDay': e.isAllDay,
+        'attendeeRole': e.attendeeRole.name,
       };
 
   ScheduleEvent _fromJson(Map<String, dynamic> json) => ScheduleEvent(
@@ -51,5 +53,6 @@ class ScheduleSnapshotRepository {
         end: DateTime.parse(json['end'] as String),
         location: json['location'] as String?,
         isAllDay: json['isAllDay'] as bool? ?? false,
+        attendeeRole: EventAttendeeRole.fromName(json['attendeeRole'] as String?),
       );
 }

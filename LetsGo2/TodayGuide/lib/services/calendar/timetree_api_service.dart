@@ -1,0 +1,94 @@
+import '../../models/event_attendee_role.dart';
+import '../../models/schedule_event.dart';
+import 'calendar_service.dart';
+import 'timetree_client.dart';
+import 'timetree_credential_store.dart';
+
+/// TimeTree 비공식 API(이메일/비밀번호 로그인) 기반 일정 조회.
+class TimeTreeApiService implements CalendarService {
+  TimeTreeApiService({
+    required this.calendarId,
+    this.labelRoles = const {},
+    TimeTreeClient? client,
+    TimeTreeCredentialStore? credentialStore,
+  })  : _client = client ?? TimeTreeClient(),
+        _credentialStore = credentialStore ?? TimeTreeCredentialStore();
+
+  final String calendarId;
+
+  /// TimeTree label id -> 이 일정을 누가 소화하는지.
+  final Map<int, EventAttendeeRole> labelRoles;
+
+  final TimeTreeClient _client;
+  final TimeTreeCredentialStore _credentialStore;
+
+  Future<String> _ensureSession({bool forceRelogin = false}) async {
+    if (!forceRelogin) {
+      final cached = await _credentialStore.readSession();
+      if (cached != null) return cached;
+    }
+
+    final creds = await _credentialStore.readCredentials();
+    if (creds == null) {
+      throw StateError('TimeTree 계정이 연결되어 있지 않습니다. 설정에서 로그인해주세요.');
+    }
+    final sessionId = await _client.login(email: creds.email, password: creds.password);
+    await _credentialStore.saveSession(sessionId);
+    return sessionId;
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchRawEvents() async {
+    final sessionId = await _ensureSession();
+    try {
+      return await _client.getEvents(sessionId, calendarId);
+    } on TimeTreeSessionExpiredException {
+      final freshSessionId = await _ensureSession(forceRelogin: true);
+      return await _client.getEvents(freshSessionId, calendarId);
+    }
+  }
+
+  @override
+  Future<List<ScheduleEvent>> fetchEventsForDate(DateTime date) async {
+    final raw = await _fetchRawEvents();
+    final dayStart = DateTime(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    final events = raw.map(_toScheduleEvent).where((e) {
+      return e.start.isBefore(dayEnd) && e.end.isAfter(dayStart);
+    }).toList();
+
+    events.sort((a, b) => a.start.compareTo(b.start));
+    return events;
+  }
+
+  ScheduleEvent _toScheduleEvent(Map<String, dynamic> raw) {
+    final id = '${raw['uuid']}';
+    final title = (raw['title'] as String?) ?? '(제목 없음)';
+    final location = raw['location'] as String?;
+    final isAllDay = raw['all_day'] == true;
+    final labelId = raw['label_id'] as int?;
+    final role = labelId == null ? EventAttendeeRole.unknown : (labelRoles[labelId] ?? EventAttendeeRole.unknown);
+
+    final startAt = (raw['start_at'] as num).toInt();
+
+    if (isAllDay) {
+      return ScheduleEvent.allDay(
+        id: id,
+        title: title,
+        date: DateTime.fromMillisecondsSinceEpoch(startAt * 1000, isUtc: true).toLocal(),
+        location: location,
+        attendeeRole: role,
+      );
+    }
+
+    final endAt = (raw['end_at'] as num).toInt();
+    return ScheduleEvent(
+      id: id,
+      title: title,
+      start: DateTime.fromMillisecondsSinceEpoch(startAt * 1000, isUtc: true).toLocal(),
+      end: DateTime.fromMillisecondsSinceEpoch(endAt * 1000, isUtc: true).toLocal(),
+      location: location,
+      attendeeRole: role,
+    );
+  }
+}
