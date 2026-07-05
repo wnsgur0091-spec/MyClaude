@@ -36,7 +36,7 @@ android {
     defaultConfig {
         applicationId "com.letsgo2.todayguide"
         // 오늘의 지침서: 위치/알림 API 안정성을 위해 Android 6.0(API 23) 이상만 지원
-        minSdk 23
+        minSdkVersion flutter.minSdkVersion
         targetSdk 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
