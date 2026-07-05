@@ -44,6 +44,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _timeTreeCalendarId;
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
+  Map<int, String> _timeTreeLabelNames = {};
 
   static const _stepCount = 5;
 
@@ -313,11 +314,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           initialCalendarId: _timeTreeCalendarId,
           initialCalendarName: _timeTreeCalendarName,
           initialLabelRoles: _timeTreeLabelRoles,
-          onChanged: ({required calendarId, required calendarName, required labelRoles}) {
+          initialLabelNames: _timeTreeLabelNames,
+          onChanged: ({required calendarId, required calendarName, required labelRoles, required labelNames}) {
             setState(() {
               _timeTreeCalendarId = calendarId;
               _timeTreeCalendarName = calendarName;
               _timeTreeLabelRoles = labelRoles;
+              _timeTreeLabelNames = labelNames;
             });
           },
         ),
@@ -384,6 +387,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       timeTreeCalendarId: _timeTreeCalendarId,
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,
+      timeTreeLabelNames: _timeTreeLabelNames,
       onboardingCompleted: true,
     );
     await widget.onComplete(settings);

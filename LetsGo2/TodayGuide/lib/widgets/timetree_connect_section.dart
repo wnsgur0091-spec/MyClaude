@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../models/event_attendee_role.dart';
+import '../screens/onboarding/widgets/timetree_webview_login_screen.dart';
 import '../services/calendar/timetree_account_service.dart';
 import '../services/calendar/timetree_client.dart';
 import '../theme/app_theme.dart';
+import 'app_alert_dialog.dart';
 
-/// TimeTree 계정 연결(이메일/비밀번호) → 캘린더 선택 → 라벨(색상)별 담당자
-/// 지정까지 한 번에 처리하는 재사용 위젯. 온보딩과 설정 화면에서 함께 쓴다.
+/// TimeTree 계정 연결(이메일/비밀번호 또는 웹뷰 로그인) → 캘린더 선택 →
+/// 라벨(색상)별 담당자/이름 지정까지 한 번에 처리하는 재사용 위젯.
+/// 온보딩과 설정 화면에서 함께 쓴다.
 class TimeTreeConnectSection extends StatefulWidget {
   const TimeTreeConnectSection({
     super.key,
     this.initialCalendarId,
     this.initialCalendarName,
     this.initialLabelRoles = const {},
+    this.initialLabelNames = const {},
     required this.onChanged,
   });
 
   final String? initialCalendarId;
   final String? initialCalendarName;
   final Map<int, EventAttendeeRole> initialLabelRoles;
+  final Map<int, String> initialLabelNames;
 
   /// 선택 상태가 바뀔 때마다 호출된다.
   final void Function({
     required String? calendarId,
     required String? calendarName,
     required Map<int, EventAttendeeRole> labelRoles,
+    required Map<int, String> labelNames,
   }) onChanged;
 
   @override
@@ -45,6 +51,8 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
   String? _selectedCalendarName;
   Map<int, TimeTreeLabel> _labels = {};
   late Map<int, EventAttendeeRole> _labelRoles;
+  late Map<int, String> _labelNames;
+  final _labelNameControllers = <int, TextEditingController>{};
 
   @override
   void initState() {
@@ -52,6 +60,7 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     _selectedCalendarId = widget.initialCalendarId;
     _selectedCalendarName = widget.initialCalendarName;
     _labelRoles = Map.of(widget.initialLabelRoles);
+    _labelNames = Map.of(widget.initialLabelNames);
     _restoreExistingLogin();
   }
 
@@ -59,6 +68,9 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    for (final controller in _labelNameControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -90,6 +102,26 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
       await _loadCalendars();
     } catch (e) {
       setState(() => _errorMessage = '$e');
+      if (mounted) {
+        await showAppAlertDialog(context, title: 'TimeTree 로그인 실패', message: '$e');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loginWithWebView() async {
+    final sessionId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const TimeTreeWebViewLoginScreen()),
+    );
+    if (sessionId == null || sessionId.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      await _accountService.loginWithSession(sessionId);
+      setState(() => _loggedIn = true);
+      await _loadCalendars();
+    } catch (e) {
+      if (mounted) await showAppAlertDialog(context, title: 'TimeTree 로그인 실패', message: '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -104,6 +136,7 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
       _selectedCalendarId = null;
       _selectedCalendarName = null;
       _labelRoles = {};
+      _labelNames = {};
       _passwordController.clear();
     });
     _emitChange();
@@ -133,6 +166,16 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
         _labels = labels;
         if (!keepExistingRoles) {
           _labelRoles = {for (final id in labels.keys) id: EventAttendeeRole.unknown};
+          _labelNames = {
+            for (final label in labels.values)
+              if (label.name.isNotEmpty) label.id: label.name,
+          };
+        }
+        for (final label in labels.values) {
+          _labelNameControllers.putIfAbsent(
+            label.id,
+            () => TextEditingController(text: _labelNames[label.id] ?? ''),
+          );
         }
       });
       _emitChange();
@@ -156,11 +199,22 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     _emitChange();
   }
 
+  void _setLabelName(int labelId, String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      _labelNames.remove(labelId);
+    } else {
+      _labelNames[labelId] = trimmed;
+    }
+    _emitChange();
+  }
+
   void _emitChange() {
     widget.onChanged(
       calendarId: _selectedCalendarId,
       calendarName: _selectedCalendarName,
       labelRoles: _labelRoles,
+      labelNames: _labelNames,
     );
   }
 
@@ -176,8 +230,10 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
             const Icon(Icons.check_circle, color: AppColors.neonCyan, size: 18),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('${_emailController.text} 로 연결됨',
-                  style: const TextStyle(color: AppColors.textPrimary)),
+              child: Text(
+                _emailController.text.isEmpty ? 'TimeTree 계정으로 연결됨' : '${_emailController.text} 로 연결됨',
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
             ),
             TextButton(onPressed: _loading ? null : _logout, child: const Text('로그아웃')),
           ],
@@ -245,6 +301,17 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
               : const Icon(Icons.login),
           label: const Text('TimeTree 로그인'),
         ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _loginWithWebView,
+          icon: const Icon(Icons.public),
+          label: const Text('TimeTree로 로그인 (웹으로 열기)'),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'TimeTree 자체 로그인 화면이 열려요. 한 번 로그인해두면 세션이 남아있는 동안 다시 입력하지 않아도 돼요.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
       ],
     );
   }
@@ -259,6 +326,7 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
   Widget _buildLabelRow(TimeTreeLabel label) {
     final color = _parseColor(label.colorHex);
     final role = _labelRoles[label.id] ?? EventAttendeeRole.unknown;
+    final nameController = _labelNameControllers[label.id]!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -270,9 +338,18 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label.name.isEmpty ? '(이름 없는 라벨)' : label.name,
-                style: const TextStyle(color: AppColors.textPrimary)),
+            child: TextField(
+              controller: nameController,
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: '라벨 이름 (예: 딥 스카이블루)',
+                border: InputBorder.none,
+              ),
+              onChanged: (v) => _setLabelName(label.id, v),
+            ),
           ),
+          const SizedBox(width: 8),
           DropdownButton<EventAttendeeRole>(
             value: role,
             dropdownColor: AppColors.spacePanelAlt,

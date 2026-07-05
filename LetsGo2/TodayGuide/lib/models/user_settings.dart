@@ -44,6 +44,10 @@ class UserSettings {
   /// TimeTree 라벨(색상) id -> 이 라벨이 누구 일정인지.
   final Map<int, EventAttendeeRole> timeTreeLabelRoles;
 
+  /// TimeTree 라벨(색상) id -> 사용자가 직접 붙인 이름(예: "딥 스카이블루").
+  /// TimeTree API가 기본(미변경) 라벨은 이름을 주지 않아서 화면 표시용으로 둔다.
+  final Map<int, String> timeTreeLabelNames;
+
   final bool onboardingCompleted;
 
   const UserSettings({
@@ -59,6 +63,7 @@ class UserSettings {
     this.timeTreeCalendarId,
     this.timeTreeCalendarName,
     this.timeTreeLabelRoles = const {},
+    this.timeTreeLabelNames = const {},
     this.onboardingCompleted = false,
   });
 
@@ -82,6 +87,7 @@ class UserSettings {
     String? timeTreeCalendarId,
     String? timeTreeCalendarName,
     Map<int, EventAttendeeRole>? timeTreeLabelRoles,
+    Map<int, String>? timeTreeLabelNames,
     bool? onboardingCompleted,
   }) {
     return UserSettings(
@@ -97,6 +103,7 @@ class UserSettings {
       timeTreeCalendarId: timeTreeCalendarId ?? this.timeTreeCalendarId,
       timeTreeCalendarName: timeTreeCalendarName ?? this.timeTreeCalendarName,
       timeTreeLabelRoles: timeTreeLabelRoles ?? this.timeTreeLabelRoles,
+      timeTreeLabelNames: timeTreeLabelNames ?? this.timeTreeLabelNames,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
   }
@@ -114,6 +121,7 @@ class UserSettings {
         'timeTreeCalendarId': timeTreeCalendarId,
         'timeTreeCalendarName': timeTreeCalendarName,
         'timeTreeLabelRoles': timeTreeLabelRoles.map((id, role) => MapEntry('$id', role.name)),
+        'timeTreeLabelNames': timeTreeLabelNames.map((id, name) => MapEntry('$id', name)),
         'onboardingCompleted': onboardingCompleted,
       };
 
@@ -131,6 +139,9 @@ class UserSettings {
         timeTreeCalendarName: json['timeTreeCalendarName'] as String?,
         timeTreeLabelRoles: (json['timeTreeLabelRoles'] as Map<String, dynamic>? ?? const {}).map(
           (id, role) => MapEntry(int.parse(id), EventAttendeeRole.fromName(role as String?)),
+        ),
+        timeTreeLabelNames: (json['timeTreeLabelNames'] as Map<String, dynamic>? ?? const {}).map(
+          (id, name) => MapEntry(int.parse(id), name as String),
         ),
         onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
       );

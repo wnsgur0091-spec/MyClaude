@@ -16,3 +16,4 @@ android/gradlew.bat
 android/**/GeneratedPluginRegistrant.java
 android/key.properties
 *.g.dart
+env.json

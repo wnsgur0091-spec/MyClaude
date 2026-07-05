@@ -12,6 +12,7 @@ import '../../services/route/odsay_transit_route_service.dart';
 import '../../services/schedule_snapshot_repository.dart';
 import '../../services/weather/kma_weather_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_alert_dialog.dart';
 import '../../widgets/starfield_background.dart';
 import 'widgets/outfit_card.dart';
 import 'widgets/schedule_timeline_card.dart';
@@ -76,7 +77,13 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     // setState의 콜백은 반환값이 없어야 한다(대입식을 화살표 함수 몸체로 쓰면
     // Future를 반환하게 되어 프레임워크가 "callback argument returned a Future"
     // 오류를 던진다). 그래서 대입은 블록 안에서, await는 밖에서 따로 한다.
-    await next;
+    try {
+      await next;
+    } catch (e) {
+      // FutureBuilder도 같은 에러를 인라인으로 보여주지만, "다시 시도"를 눌러
+      // 재시도했을 때는 확인 버튼이 있는 알럿으로 한 번 더 명확히 알려준다.
+      if (mounted) await showAppAlertDialog(context, title: '다시 시도했지만 실패했어요', message: _formatError(e));
+    }
   }
 
   @override

@@ -34,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _timeTreeCalendarId;
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
+  Map<int, String> _timeTreeLabelNames = {};
 
   @override
   void initState() {
@@ -51,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _timeTreeCalendarId = s.timeTreeCalendarId;
     _timeTreeCalendarName = s.timeTreeCalendarName;
     _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
+    _timeTreeLabelNames = Map.of(s.timeTreeLabelNames);
   }
 
   @override
@@ -203,11 +205,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       initialCalendarId: _timeTreeCalendarId,
       initialCalendarName: _timeTreeCalendarName,
       initialLabelRoles: _timeTreeLabelRoles,
-      onChanged: ({required calendarId, required calendarName, required labelRoles}) {
+      initialLabelNames: _timeTreeLabelNames,
+      onChanged: ({required calendarId, required calendarName, required labelRoles, required labelNames}) {
         setState(() {
           _timeTreeCalendarId = calendarId;
           _timeTreeCalendarName = calendarName;
           _timeTreeLabelRoles = labelRoles;
+          _timeTreeLabelNames = labelNames;
         });
       },
     );
@@ -228,6 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       timeTreeCalendarId: _timeTreeCalendarId,
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,
+      timeTreeLabelNames: _timeTreeLabelNames,
       onboardingCompleted: true,
     );
     await widget.onSave(updated);
