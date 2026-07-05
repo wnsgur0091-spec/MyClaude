@@ -38,7 +38,12 @@ class AppTheme {
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
         centerTitle: true,
-        letterSpacing: 1.2,
+        titleTextStyle: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.spacePanel,
