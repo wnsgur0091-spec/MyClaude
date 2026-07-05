@@ -20,10 +20,19 @@ import 'widgets/schedule_timeline_card.dart';
 /// 오늘의 지침서 메인 화면. 알림을 탭하거나 앱을 열 때마다 그 시점의
 /// 위치를 기준으로 지침을 새로 계산한다.
 class TodayGuideScreen extends StatefulWidget {
-  const TodayGuideScreen({super.key, required this.settings, required this.onOpenSettings});
+  const TodayGuideScreen({
+    super.key,
+    required this.settings,
+    required this.onOpenSettings,
+    this.onFreshEventsFetched,
+  });
 
   final UserSettings settings;
   final VoidCallback onOpenSettings;
+
+  /// 그날 일정을 캘린더에서 새로 조회했을 때(캐시가 아닐 때)만 호출된다.
+  /// 일정별 사전 알림(3시간 전) 예약에 쓴다.
+  final Future<void> Function(List<ScheduleEvent> events)? onFreshEventsFetched;
 
   @override
   State<TodayGuideScreen> createState() => _TodayGuideScreenState();
@@ -39,6 +48,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     transitRouteService: OdsayTransitRouteService(),
     snapshotRepository: ScheduleSnapshotRepository(),
     locationOverrideRepository: _locationOverrideRepository,
+    onFreshEventsFetched: widget.onFreshEventsFetched,
   );
 
   late Future<TodayGuideResult> _future;

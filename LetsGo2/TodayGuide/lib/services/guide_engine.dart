@@ -23,6 +23,7 @@ class GuideEngine {
     required this.transitRouteService,
     required this.snapshotRepository,
     EventLocationOverrideRepository? locationOverrideRepository,
+    this.onFreshEventsFetched,
   }) : locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
@@ -31,6 +32,10 @@ class GuideEngine {
   final OdsayTransitRouteService transitRouteService;
   final ScheduleSnapshotRepository snapshotRepository;
   final EventLocationOverrideRepository locationOverrideRepository;
+
+  /// 캘린더에서 그날 일정을 "새로" 조회했을 때(캐시가 아닐 때)만 호출된다.
+  /// 일정별 사전 알림(3시간 전 등) 예약 등에 쓴다.
+  final Future<void> Function(List<ScheduleEvent> events)? onFreshEventsFetched;
 
   Future<TodayGuideResult> buildTodayGuide({
     required UserSettings settings,
@@ -149,6 +154,7 @@ class GuideEngine {
     final fresh = await calendarService.fetchEventsForDate(now);
     await snapshotRepository.writeTodaySnapshot(now, fresh);
     notices.add('일정은 오늘 최초 조회 시점 기준으로 고정돼요. 이후 추가/수정된 일정은 반영되지 않아요.');
+    await onFreshEventsFetched?.call(fresh);
     return fresh;
   }
 

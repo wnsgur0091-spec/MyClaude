@@ -80,7 +80,11 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       home: _settings.onboardingCompleted
-          ? TodayGuideScreen(settings: _settings, onOpenSettings: _openSettings)
+          ? TodayGuideScreen(
+              settings: _settings,
+              onOpenSettings: _openSettings,
+              onFreshEventsFetched: (events) => _notificationService?.scheduleEventReminders(events) ?? Future.value(),
+            )
           : OnboardingScreen(onComplete: _handleOnboardingComplete),
     );
   }
