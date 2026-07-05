@@ -6,9 +6,12 @@ import '../../../theme/app_theme.dart';
 import 'transport_card.dart';
 
 class ScheduleTimelineCard extends StatelessWidget {
-  const ScheduleTimelineCard({super.key, required this.guide});
+  const ScheduleTimelineCard({super.key, required this.guide, this.onAddLocation});
 
   final EventGuide guide;
+
+  /// 장소가 없는 일정에서 "장소 입력" 버튼을 눌렀을 때 호출된다.
+  final VoidCallback? onAddLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +75,18 @@ class ScheduleTimelineCard extends StatelessWidget {
                 if (guide.carPlan != null) TransportChip(plan: guide.carPlan!),
                 if (guide.transitPlan != null) TransportChip(plan: guide.transitPlan!),
               ],
+            ),
+          ],
+          if (guide.missingLocation) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onAddLocation,
+              icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+              label: const Text('장소 입력하고 이동경로 계산하기'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.warning,
+                side: const BorderSide(color: AppColors.warning),
+              ),
             ),
           ],
           if (guide.weather != null) ...[

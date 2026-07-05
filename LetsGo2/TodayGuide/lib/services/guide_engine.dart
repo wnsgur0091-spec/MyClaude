@@ -4,6 +4,7 @@ import '../models/today_guide_result.dart';
 import '../models/user_settings.dart';
 import '../models/weather_snapshot.dart';
 import 'calendar/calendar_service.dart';
+import 'event_location_override_repository.dart';
 import 'location_service.dart';
 import 'outfit_rules.dart';
 import 'route/naver_driving_route_service.dart';
@@ -21,13 +22,15 @@ class GuideEngine {
     required this.drivingRouteService,
     required this.transitRouteService,
     required this.snapshotRepository,
-  });
+    EventLocationOverrideRepository? locationOverrideRepository,
+  }) : locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
   final KmaWeatherService weatherService;
   final NaverDrivingRouteService drivingRouteService;
   final OdsayTransitRouteService transitRouteService;
   final ScheduleSnapshotRepository snapshotRepository;
+  final EventLocationOverrideRepository locationOverrideRepository;
 
   Future<TodayGuideResult> buildTodayGuide({
     required UserSettings settings,
@@ -68,15 +71,29 @@ class GuideEngine {
 
       RoutePlan? carPlan;
       RoutePlan? transitPlan;
+      var missingLocation = false;
 
-      final destination = event.attendeeRole.includeInOwnRoute ? await _resolveDestination(event, notices) : null;
+      ({double lat, double lng})? destination;
+      if (event.attendeeRole.includeInOwnRoute) {
+        final resolved = await _resolveAddress(event);
+        if (resolved == null) {
+          missingLocation = true;
+          notices.add('"${event.title}" 일정에 장소가 없어요. 카드에서 장소를 입력해주세요.');
+        } else {
+          destination = await _safeCall(() => locationService.geocodeAddress(resolved));
+          if (destination == null) {
+            notices.add('"${event.title}" 장소($resolved)의 위치를 찾지 못했어요.');
+          }
+        }
+      }
       if (destination != null) {
+        final dest = destination;
         final carMinutes = await _safeCall(
           () => drivingRouteService.estimateDurationMinutes(
             startLat: originLat,
             startLng: originLng,
-            goalLat: destination.lat,
-            goalLng: destination.lng,
+            goalLat: dest.lat,
+            goalLng: dest.lng,
           ),
         );
         if (carMinutes != null) {
@@ -91,8 +108,8 @@ class GuideEngine {
           () => transitRouteService.estimateDurationMinutes(
             startLat: originLat,
             startLng: originLng,
-            goalLat: destination.lat,
-            goalLng: destination.lng,
+            goalLat: dest.lat,
+            goalLng: dest.lng,
           ),
         );
         if (transitMinutes != null) {
@@ -103,11 +120,17 @@ class GuideEngine {
           );
         }
 
-        originLat = destination.lat;
-        originLng = destination.lng;
+        originLat = dest.lat;
+        originLng = dest.lng;
       }
 
-      eventGuides.add(EventGuide(event: event, carPlan: carPlan, transitPlan: transitPlan, weather: weather));
+      eventGuides.add(EventGuide(
+        event: event,
+        carPlan: carPlan,
+        transitPlan: transitPlan,
+        weather: weather,
+        missingLocation: missingLocation,
+      ));
     }
 
     final outfit = OutfitRules.recommend(daySnapshots: daySnapshots, gender: settings.gender);
@@ -138,16 +161,12 @@ class GuideEngine {
     }
   }
 
-  Future<({double lat, double lng})?> _resolveDestination(ScheduleEvent event, List<String> notices) async {
-    if (event.location == null || event.location!.trim().isEmpty) {
-      notices.add('"${event.title}" 일정에 장소가 없어 이동 지침을 계산하지 못했어요.');
-      return null;
-    }
-    final geocoded = await _safeCall(() => locationService.geocodeAddress(event.location!));
-    if (geocoded == null) {
-      notices.add('"${event.title}" 장소(${event.location})의 위치를 찾지 못했어요.');
-    }
-    return geocoded;
+  /// 캘린더 원본 장소가 없으면 사용자가 직접 입력해둔 장소(override)를 대신 쓴다.
+  Future<String?> _resolveAddress(ScheduleEvent event) async {
+    final original = event.location?.trim();
+    if (original != null && original.isNotEmpty) return original;
+    final override = await locationOverrideRepository.read(event.id);
+    return (override == null || override.trim().isEmpty) ? null : override.trim();
   }
 
   Future<T?> _safeCall<T>(Future<T?> Function() call) async {

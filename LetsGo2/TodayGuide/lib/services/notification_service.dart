@@ -22,7 +22,7 @@ class NotificationService {
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
 
     final plugin = FlutterLocalNotificationsPlugin();
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
     const initSettings = InitializationSettings(android: androidInit);
 
     await plugin.initialize(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../models/schedule_event.dart';
 import '../../models/today_guide_result.dart';
 import '../../models/user_settings.dart';
 import '../../services/calendar/calendar_service_factory.dart';
+import '../../services/event_location_override_repository.dart';
 import '../../services/guide_engine.dart';
 import '../../services/location_service.dart';
 import '../../services/route/naver_driving_route_service.dart';
@@ -27,15 +29,19 @@ class TodayGuideScreen extends StatefulWidget {
 }
 
 class _TodayGuideScreenState extends State<TodayGuideScreen> {
+  final _locationOverrideRepository = EventLocationOverrideRepository();
+
   late final GuideEngine _guideEngine = GuideEngine(
     locationService: LocationService(),
     weatherService: KmaWeatherService(),
     drivingRouteService: NaverDrivingRouteService(),
     transitRouteService: OdsayTransitRouteService(),
     snapshotRepository: ScheduleSnapshotRepository(),
+    locationOverrideRepository: _locationOverrideRepository,
   );
 
   late Future<TodayGuideResult> _future;
+  bool _locationPromptShown = false;
 
   @override
   void initState() {
@@ -54,6 +60,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   }
 
   Future<TodayGuideResult> _load() {
+    _locationPromptShown = false;
     return _guideEngine.buildTodayGuide(
       settings: widget.settings,
       calendarService: buildCalendarService(widget.settings),
@@ -90,7 +97,9 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                 if (snapshot.hasError) {
                   return _buildError(_formatError(snapshot.error));
                 }
-                return _buildResult(snapshot.data!);
+                final result = snapshot.data!;
+                _maybePromptMissingLocations(result);
+                return _buildResult(result);
               },
             ),
           ),
@@ -165,6 +174,59 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     return text.startsWith(prefix) ? text.substring(prefix.length) : text;
   }
 
+  /// 알림을 탭해서 들어왔을 때(=그날 최초 조회) 장소 없는 일정이 있으면
+  /// 바로 입력하라고 안내한다. 같은 결과에 대해 한 번만 띄운다.
+  void _maybePromptMissingLocations(TodayGuideResult result) {
+    if (_locationPromptShown) return;
+    final missing = result.eventGuides.where((g) => g.missingLocation).map((g) => g.event).toList();
+    if (missing.isEmpty) return;
+    _locationPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _promptForLocations(missing));
+  }
+
+  Future<void> _promptForLocations(List<ScheduleEvent> events) async {
+    var anySaved = false;
+    for (final event in events) {
+      if (!mounted) return;
+      final saved = await _showLocationDialog(event);
+      anySaved = anySaved || saved;
+    }
+    if (anySaved && mounted) await _refresh();
+  }
+
+  Future<bool> _showLocationDialog(ScheduleEvent event) async {
+    final controller = TextEditingController();
+    final address = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.spacePanel,
+        title: Text('"${event.title}" 장소를 입력해주세요',
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: const InputDecoration(hintText: '예: 강남역 2번 출구, 판교 카페거리 스타벅스'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('나중에')),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (address == null || address.isEmpty) return false;
+    await _locationOverrideRepository.save(event.id, address);
+    return true;
+  }
+
+  Future<void> _addLocationFor(ScheduleEvent event) async {
+    final saved = await _showLocationDialog(event);
+    if (saved && mounted) await _refresh();
+  }
+
   Widget _buildResult(TodayGuideResult result) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -190,7 +252,10 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         else
           ...result.eventGuides.map((g) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: ScheduleTimelineCard(guide: g),
+                child: ScheduleTimelineCard(
+                  guide: g,
+                  onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
+                ),
               )),
       ],
     );

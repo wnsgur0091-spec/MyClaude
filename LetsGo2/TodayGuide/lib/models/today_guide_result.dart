@@ -10,11 +10,16 @@ class EventGuide {
   final RoutePlan? transitPlan;
   final WeatherSnapshot? weather;
 
+  /// 이 일정에 장소가 없어서(캘린더 원본에도, 사용자가 입력한 값에도) 이동경로를
+  /// 계산하지 못한 상태. true면 화면에서 장소 입력을 유도한다.
+  final bool missingLocation;
+
   const EventGuide({
     required this.event,
     this.carPlan,
     this.transitPlan,
     this.weather,
+    this.missingLocation = false,
   });
 }
 
