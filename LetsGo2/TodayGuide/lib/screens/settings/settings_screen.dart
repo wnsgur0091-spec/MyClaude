@@ -35,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
   Map<int, String> _timeTreeLabelNames = {};
+  bool _isSpouseDevice = false;
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _timeTreeCalendarName = s.timeTreeCalendarName;
     _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
     _timeTreeLabelNames = Map.of(s.timeTreeLabelNames);
+    _isSpouseDevice = s.isSpouseDevice ?? false;
   }
 
   @override
@@ -105,6 +107,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 24),
                     _sectionTitle('TimeTree 연동'),
                     _calendarProviderSection(),
+                    const SizedBox(height: 24),
+                    _sectionTitle('기기 구분'),
+                    _spouseDeviceTile(),
                   ],
                 ),
               ),
@@ -217,6 +222,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _spouseDeviceTile() {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      activeColor: AppColors.neonCyan,
+      value: _isSpouseDevice,
+      onChanged: (v) => setState(() => _isSpouseDevice = v),
+      title: const Text('이 기기는 배우자 기기예요', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        '기종으로 자동 추정되지만, 틀렸거나 기기를 바꿨다면 여기서 직접 바꿔주세요. '
+        '켜면 TimeTree 라벨의 본인/배우자 역할이 서로 바뀌어 해석돼요.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     final updated = UserSettings(
@@ -233,6 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,
       timeTreeLabelNames: _timeTreeLabelNames,
+      isSpouseDevice: _isSpouseDevice,
       onboardingCompleted: true,
     );
     await widget.onSave(updated);

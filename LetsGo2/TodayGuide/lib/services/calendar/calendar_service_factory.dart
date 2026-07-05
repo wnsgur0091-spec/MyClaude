@@ -6,5 +6,6 @@ CalendarService buildCalendarService(UserSettings settings) {
   return TimeTreeApiService(
     calendarId: settings.timeTreeCalendarId ?? '',
     labelRoles: settings.timeTreeLabelRoles,
+    isSpouseDevice: settings.isSpouseDevice ?? false,
   );
 }

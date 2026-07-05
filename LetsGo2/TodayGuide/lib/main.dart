@@ -4,6 +4,7 @@ import 'models/user_settings.dart';
 import 'screens/home/today_guide_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'services/device_role_service.dart';
 import 'services/notification_service.dart';
 import 'services/settings_repository.dart';
 import 'theme/app_theme.dart';
@@ -35,6 +36,17 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
   void initState() {
     super.initState();
     _initNotifications();
+    _detectSpouseDeviceIfNeeded();
+  }
+
+  /// 최초 실행 시 기종으로 "이 기기가 배우자 기기인지" 자동 추정한다.
+  /// 이미 값이 있으면(자동 추정됐거나 설정에서 수동으로 바꿨으면) 건드리지 않는다.
+  Future<void> _detectSpouseDeviceIfNeeded() async {
+    if (_settings.isSpouseDevice != null) return;
+    final isSpouseDevice = await DeviceRoleService().detectIsSpouseDevice();
+    final updated = _settings.copyWith(isSpouseDevice: isSpouseDevice);
+    await widget.settingsRepository.save(updated);
+    if (mounted) setState(() => _settings = updated);
   }
 
   Future<void> _initNotifications() async {

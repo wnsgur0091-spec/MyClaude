@@ -9,6 +9,7 @@ class TimeTreeApiService implements CalendarService {
   TimeTreeApiService({
     required this.calendarId,
     this.labelRoles = const {},
+    this.isSpouseDevice = false,
     TimeTreeClient? client,
     TimeTreeCredentialStore? credentialStore,
   })  : _client = client ?? TimeTreeClient(),
@@ -16,8 +17,11 @@ class TimeTreeApiService implements CalendarService {
 
   final String calendarId;
 
-  /// TimeTree label id -> 이 일정을 누가 소화하는지.
+  /// TimeTree label id -> 이 라벨이 "배우자 기기가 아닌 쪽" 기준으로 누구 일정인지.
   final Map<int, EventAttendeeRole> labelRoles;
+
+  /// 이 기기가 배우자 기기면 labelRoles의 me/partner 해석을 뒤집는다.
+  final bool isSpouseDevice;
 
   final TimeTreeClient _client;
   final TimeTreeCredentialStore _credentialStore;
@@ -67,7 +71,8 @@ class TimeTreeApiService implements CalendarService {
     final location = raw['location'] as String?;
     final isAllDay = raw['all_day'] == true;
     final labelId = raw['label_id'] as int?;
-    final role = labelId == null ? EventAttendeeRole.unknown : (labelRoles[labelId] ?? EventAttendeeRole.unknown);
+    final rawRole = labelId == null ? EventAttendeeRole.unknown : (labelRoles[labelId] ?? EventAttendeeRole.unknown);
+    final role = rawRole.perspectiveFor(isSpouseDevice: isSpouseDevice);
 
     final startAt = (raw['start_at'] as num).toInt();
 
