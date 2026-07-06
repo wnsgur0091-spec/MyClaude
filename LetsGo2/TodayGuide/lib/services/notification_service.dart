@@ -75,24 +75,29 @@ class NotificationService {
       final fireAt = tz.TZDateTime.from(event.start.subtract(_reminderLeadTime), tz.local);
       if (!fireAt.isAfter(now)) continue;
 
-      await _plugin.zonedSchedule(
-        _eventReminderIdBase + i,
-        '곧 "${event.title}" 일정이 있어요',
-        '3시간 후 시작이에요. 지금 위치 기준으로 출발 준비를 확인해보세요.',
-        fireAt,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            _eventReminderChannelId,
-            _eventReminderChannelName,
-            channelDescription: '일정 시작 3시간 전에 출발 준비를 알려줍니다.',
-            importance: Importance.high,
-            priority: Priority.high,
+      try {
+        await _plugin.zonedSchedule(
+          _eventReminderIdBase + i,
+          '곧 "${event.title}" 일정이 있어요',
+          '3시간 후 시작이에요. 지금 위치 기준으로 출발 준비를 확인해보세요.',
+          fireAt,
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              _eventReminderChannelId,
+              _eventReminderChannelName,
+              channelDescription: '일정 시작 3시간 전에 출발 준비를 알려줍니다.',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
           ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        payload: tapPayload,
-      );
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          payload: tapPayload,
+        );
+      } catch (_) {
+        // 일정 하나의 알림 예약이 실패해도(예: 비정상적인 시각) 나머지
+        // 일정의 알림과 오늘의 지침서 전체 계산은 계속 진행되어야 한다.
+      }
     }
   }
 }

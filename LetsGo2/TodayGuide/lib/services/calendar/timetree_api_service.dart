@@ -54,7 +54,10 @@ class TimeTreeApiService implements CalendarService {
   @override
   Future<CalendarFetchResult> fetchTodayAndNext(DateTime now) async {
     final raw = await _fetchRawEvents();
-    final all = raw.map(_toScheduleEvent).toList()..sort((a, b) => a.start.compareTo(b.start));
+    // 타임스탬프 파싱이 잘못됐거나 TimeTree 쪽 데이터가 이상해서 연도가
+    // 터무니없는(예: 서기 5만년대) 일정이 섞여 들어오면, 그걸 "가장 가까운
+    // 다음 일정"으로 잘못 고르지 않도록 여기서 걸러낸다.
+    final all = raw.map(_toScheduleEvent).where(_isSane).toList()..sort((a, b) => a.start.compareTo(b.start));
 
     final dayStart = DateTime(now.year, now.month, now.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
@@ -72,6 +75,11 @@ class TimeTreeApiService implements CalendarService {
     return CalendarFetchResult(todayEvents: todayEvents, nextUpcomingEvent: nextUpcoming);
   }
 
+  /// 파싱된 일정 시각이 상식적인 범위(2000~2100년)인지 확인한다.
+  bool _isSane(ScheduleEvent event) {
+    return event.start.year >= 2000 && event.start.year <= 2100;
+  }
+
   ScheduleEvent _toScheduleEvent(Map<String, dynamic> raw) {
     final id = '${raw['uuid']}';
     final title = (raw['title'] as String?) ?? '(제목 없음)';
@@ -81,13 +89,17 @@ class TimeTreeApiService implements CalendarService {
     final rawRole = labelId == null ? EventAttendeeRole.unknown : (labelRoles[labelId] ?? EventAttendeeRole.unknown);
     final role = rawRole.perspectiveFor(isSpouseDevice: isSpouseDevice);
 
+    // TimeTree API의 start_at/end_at은 이미 밀리초 단위 유닉스 타임스탬프다
+    // (초 단위가 아니다). 여기에 다시 *1000을 곱하면 날짜가 1000배 부풀려져
+    // 서기 5만년대 같은 값이 나오고, 그걸 그대로 알림 예약에 넘기면
+    // 플랫폼 쪽 날짜 파서가 예외를 던져 앱이 에러 화면을 띄운다.
     final startAt = (raw['start_at'] as num).toInt();
 
     if (isAllDay) {
       return ScheduleEvent.allDay(
         id: id,
         title: title,
-        date: DateTime.fromMillisecondsSinceEpoch(startAt * 1000, isUtc: true).toLocal(),
+        date: DateTime.fromMillisecondsSinceEpoch(startAt, isUtc: true).toLocal(),
         location: location,
         attendeeRole: role,
       );
@@ -97,8 +109,8 @@ class TimeTreeApiService implements CalendarService {
     return ScheduleEvent(
       id: id,
       title: title,
-      start: DateTime.fromMillisecondsSinceEpoch(startAt * 1000, isUtc: true).toLocal(),
-      end: DateTime.fromMillisecondsSinceEpoch(endAt * 1000, isUtc: true).toLocal(),
+      start: DateTime.fromMillisecondsSinceEpoch(startAt, isUtc: true).toLocal(),
+      end: DateTime.fromMillisecondsSinceEpoch(endAt, isUtc: true).toLocal(),
       location: location,
       attendeeRole: role,
     );
