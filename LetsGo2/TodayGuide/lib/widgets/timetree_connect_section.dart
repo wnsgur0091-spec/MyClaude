@@ -35,12 +35,30 @@ class TimeTreeConnectSection extends StatefulWidget {
 }
 
 class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
-  /// TimeTree 라벨 이름이 이 값과 일치하면 역할을 자동으로 지정한다
+  /// TimeTree 라벨 색상이 이 값과 일치하면 역할을 자동으로 지정한다
   /// (본인 기기 기준. 배우자 기기에서는 EventAttendeeRole.perspectiveFor가 뒤집는다).
-  static const _autoRoleByLabelName = {
-    '딥 스카이블루': EventAttendeeRole.me,
-    '에메랄드 그린': EventAttendeeRole.partner,
-    '프렌치 로즈': EventAttendeeRole.both,
+  /// TimeTree의 라벨 조회 API는 이름(name) 필드를 항상 빈 문자열로 내려주고
+  /// 색상(color)만 실제로 채워서 주기 때문에, 이름이 아니라 색상 코드로
+  /// 매칭해야 한다(로그로 실제 응답을 확인해서 알아낸 값).
+  static const _autoRoleByColorHex = {
+    '#47b2f7': EventAttendeeRole.me, // 딥 스카이블루
+    '#2ecc87': EventAttendeeRole.partner, // 에메랄드 그린
+    '#f35f8c': EventAttendeeRole.both, // 프렌치 로즈
+  };
+
+  /// TimeTree 라벨은 이름이 없으므로(API가 항상 빈 문자열을 줌), 화면에는
+  /// 색상 코드로 알아볼 수 있는 한글 색상명을 대신 보여준다.
+  static const _colorNameByHex = {
+    '#2ecc87': '에메랄드 그린',
+    '#3dc2c8': '터쿼이즈',
+    '#47b2f7': '딥 스카이블루',
+    '#948078': '그레이 브라운',
+    '#212121': '블랙',
+    '#e73b3b': '레드',
+    '#f35f8c': '프렌치 로즈',
+    '#fb7f77': '코랄',
+    '#fdc02d': '골드',
+    '#b38bdc': '라벤더',
   };
 
   final _accountService = TimeTreeAccountService();
@@ -159,21 +177,16 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     setState(() => _loading = true);
     try {
       final labels = await _accountService.fetchLabels(calendarId);
-      // 자동 매핑이 왜 실패하는지(이름이 실제로 뭐가 오는지) 확인하기 위한
-      // 진단용 로그. 정상 동작 확인되면 제거해도 된다.
-      for (final label in labels.values) {
-        debugPrint('TimeTree label id=${label.id} name="${label.name}" color=${label.colorHex}');
-      }
       if (!mounted) return;
       setState(() {
         _labels = labels;
         // 이미 사용자가 직접 지정한 역할은 그대로 두고, 아직 지정 안 된
-        // (또는 "미지정") 라벨만 이름 매칭으로 자동 채운다. 그래야 기존에
+        // (또는 "미지정") 라벨만 색상 매칭으로 자동 채운다. 그래야 기존에
         // 연동해둔 계정도(라벨을 다시 불러올 때마다) 자동 매핑을 놓치지 않는다.
         for (final label in labels.values) {
           final current = _labelRoles[label.id];
           if (current == null || current == EventAttendeeRole.unknown) {
-            final auto = _autoRoleByLabelName[label.name];
+            final auto = _autoRoleByColorHex[label.colorHex];
             if (auto != null) _labelRoles[label.id] = auto;
           }
         }
@@ -321,7 +334,7 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              label.name.isEmpty ? '(이름 없는 라벨)' : label.name,
+              label.name.isNotEmpty ? label.name : (_colorNameByHex[label.colorHex] ?? '(이름 없는 라벨)'),
               style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
           ),
