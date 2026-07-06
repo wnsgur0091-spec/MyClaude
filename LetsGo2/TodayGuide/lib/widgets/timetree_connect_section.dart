@@ -159,6 +159,11 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     setState(() => _loading = true);
     try {
       final labels = await _accountService.fetchLabels(calendarId);
+      // 자동 매핑이 왜 실패하는지(이름이 실제로 뭐가 오는지) 확인하기 위한
+      // 진단용 로그. 정상 동작 확인되면 제거해도 된다.
+      for (final label in labels.values) {
+        debugPrint('TimeTree label id=${label.id} name="${label.name}" color=${label.colorHex}');
+      }
       if (!mounted) return;
       setState(() {
         _labels = labels;
