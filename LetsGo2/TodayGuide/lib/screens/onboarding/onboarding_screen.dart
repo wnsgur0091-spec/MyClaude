@@ -9,8 +9,10 @@ import '../../widgets/timetree_connect_section.dart';
 import 'widgets/onboarding_notice_card.dart';
 
 /// 최초 실행 시 초기 셋팅 마법사.
-/// 알람 시각 → 프로필 → 기본 출발지 → 일정 관리 앱 연동 → 고지사항 확인 순으로
+/// 고지사항 확인 → 프로필 → 기본 출발지 → 일정 관리 앱 연동 순으로
 /// 입력받고, 완료 시 [onComplete]으로 최종 [UserSettings]를 전달한다.
+/// 알람은 고정 시각이 아니라 TimeTree 일정 시작 3시간 전에 자동으로 오므로
+/// 별도 설정 단계가 없다.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onComplete});
 
@@ -31,7 +33,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _stepIndex = 0;
   bool _notice1Ack = false;
   bool _notice2Ack = false;
-  TimeOfDay _alarmTime = const TimeOfDay(hour: 8, minute: 0);
   Gender _gender = Gender.other;
 
   double? _homeLat;
@@ -45,7 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
 
-  static const _stepCount = 5;
+  static const _stepCount = 4;
 
   @override
   void dispose() {
@@ -61,12 +62,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 0:
         return _notice1Ack && _notice2Ack;
       case 1:
-        return true;
-      case 2:
         return _ageController.text.trim().isNotEmpty;
-      case 3:
+      case 2:
         return _homeAddressController.text.trim().isNotEmpty || _workAddressController.text.trim().isNotEmpty;
-      case 4:
+      case 3:
         return _timeTreeCalendarId != null;
       default:
         return true;
@@ -87,7 +86,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
                     _buildNoticeStep(),
-                    _buildAlarmTimeStep(),
                     _buildProfileStep(),
                     _buildAddressStep(),
                     _buildCalendarProviderStep(),
@@ -147,9 +145,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       subtitle: '오늘의 지침서가 정확하게 안내하기 위해 아래 규칙을 꼭 확인해주세요.',
       children: [
         const OnboardingNoticeCard(
-          title: '당일 추가/수정된 일정은 반영되지 않아요',
-          description: '오늘의 지침서는 하루 중 최초 조회 시점(보통 알람 시각)의 일정을 기준으로 안내돼요. '
-              '이후 새로 추가하거나 변경한 일정은 그날 지침에 반영되지 않아요.',
+          title: '알람은 일정 시작 3시간 전에 와요',
+          description: '정해진 시각에 오는 게 아니라, TimeTree에 등록된 각 일정 시작 3시간 전에 '
+              '출발 준비 알림이 와요. 앱을 열거나 새로고침할 때마다 TimeTree 일정을 매번 새로 가져와요.',
         ),
         const SizedBox(height: 12),
         const OnboardingNoticeCard(
@@ -164,7 +162,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           controlAffinity: ListTileControlAffinity.leading,
           activeColor: AppColors.neonCyan,
           contentPadding: EdgeInsets.zero,
-          title: const Text('당일 일정 변경 미반영 규칙을 확인했어요', style: TextStyle(color: AppColors.textPrimary)),
+          title: const Text('일정 시작 3시간 전 알람 규칙을 확인했어요', style: TextStyle(color: AppColors.textPrimary)),
         ),
         CheckboxListTile(
           value: _notice2Ack,
@@ -173,32 +171,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           activeColor: AppColors.neonCyan,
           contentPadding: EdgeInsets.zero,
           title: const Text("'종일' 일정 기준(09:00~18:00)을 확인했어요", style: TextStyle(color: AppColors.textPrimary)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAlarmTimeStep() {
-    return _stepScaffold(
-      title: '알람 시각',
-      subtitle: '매일 이 시각에 오늘의 지침서 알림을 보내드려요. 디폴트는 오전 8시예요.',
-      children: [
-        Center(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                _formatTime(_alarmTime),
-                style: const TextStyle(fontSize: 56, color: AppColors.neonCyan, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: _pickAlarmTime,
-                icon: const Icon(Icons.schedule),
-                label: const Text('시각 변경'),
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -369,15 +341,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _pageController.previousPage(duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
   }
 
-  Future<void> _pickAlarmTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _alarmTime);
-    if (picked != null) setState(() => _alarmTime = picked);
-  }
-
   Future<void> _finish() async {
     setState(() => _saving = true);
     final settings = UserSettings(
-      alarmMinuteOfDay: _alarmTime.hour * 60 + _alarmTime.minute,
       gender: _gender,
       age: int.tryParse(_ageController.text.trim()) ?? 0,
       homeAddress: _homeAddressController.text.trim().isEmpty ? null : _homeAddressController.text.trim(),
@@ -393,11 +359,5 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
     await widget.onComplete(settings);
     if (mounted) setState(() => _saving = false);
-  }
-
-  String _formatTime(TimeOfDay time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }

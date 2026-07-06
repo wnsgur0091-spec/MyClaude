@@ -20,7 +20,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _locationService = LocationService();
 
-  late TimeOfDay _alarmTime;
   late Gender _gender;
   late final TextEditingController _ageController;
   late final TextEditingController _homeAddressController;
@@ -41,7 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final s = widget.settings;
-    _alarmTime = TimeOfDay(hour: s.alarmHour, minute: s.alarmMinute);
     _gender = s.gender;
     _ageController = TextEditingController(text: s.age > 0 ? '${s.age}' : '');
     _homeAddressController = TextEditingController(text: s.homeAddress ?? '');
@@ -79,9 +77,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    _sectionTitle('알람 시각'),
-                    _alarmTimeTile(),
-                    const SizedBox(height: 24),
                     _sectionTitle('프로필'),
                     _profileSection(),
                     const SizedBox(height: 24),
@@ -133,19 +128,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Text(text,
             style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
       );
-
-  Widget _alarmTimeTile() {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.schedule, color: AppColors.neonCyan),
-      title: Text(_formatTime(_alarmTime), style: const TextStyle(color: AppColors.textPrimary, fontSize: 18)),
-      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
-      onTap: () async {
-        final picked = await showTimePicker(context: context, initialTime: _alarmTime);
-        if (picked != null) setState(() => _alarmTime = picked);
-      },
-    );
-  }
 
   Widget _profileSection() {
     return Column(
@@ -244,7 +226,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final updated = UserSettings(
-      alarmMinuteOfDay: _alarmTime.hour * 60 + _alarmTime.minute,
       gender: _gender,
       age: int.tryParse(_ageController.text.trim()) ?? widget.settings.age,
       homeAddress: _homeAddressController.text.trim().isEmpty ? null : _homeAddressController.text.trim(),
@@ -264,11 +245,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _saving = false);
       Navigator.of(context).pop();
     }
-  }
-
-  String _formatTime(TimeOfDay time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }

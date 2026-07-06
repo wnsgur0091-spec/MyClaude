@@ -9,43 +9,40 @@ import 'location_service.dart';
 import 'outfit_rules.dart';
 import 'route/naver_driving_route_service.dart';
 import 'route/odsay_transit_route_service.dart';
-import 'schedule_snapshot_repository.dart';
 import 'weather/kma_weather_service.dart';
 
 /// 오늘의 지침서 핵심 계산기.
-/// 앱/알림을 여는 시점에만 실행되며, 그 시점의 현재 위치와 "당일 최초 조회
-/// 시점에 고정된" 일정 스냅샷을 조합해 이동/옷차림/준비물 지침을 만든다.
+/// 앱을 열거나 새로고침할 때마다 그 시점의 현재 위치와 TimeTree 일정을
+/// 매번 새로 가져와서 이동/옷차림/준비물 지침을 만든다(당일 고정 캐시 없음).
 class GuideEngine {
   GuideEngine({
     required this.locationService,
     required this.weatherService,
     required this.drivingRouteService,
     required this.transitRouteService,
-    required this.snapshotRepository,
     EventLocationOverrideRepository? locationOverrideRepository,
-    this.onFreshEventsFetched,
+    this.onEventsFetched,
   }) : locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
   final KmaWeatherService weatherService;
   final NaverDrivingRouteService drivingRouteService;
   final OdsayTransitRouteService transitRouteService;
-  final ScheduleSnapshotRepository snapshotRepository;
   final EventLocationOverrideRepository locationOverrideRepository;
 
-  /// 캘린더에서 그날 일정을 "새로" 조회했을 때(캐시가 아닐 때)만 호출된다.
-  /// 일정별 사전 알림(3시간 전 등) 예약 등에 쓴다.
-  final Future<void> Function(List<ScheduleEvent> events)? onFreshEventsFetched;
+  /// 일정을 조회할 때마다(=buildTodayGuide 호출마다) 호출된다.
+  /// 일정별 사전 알림(3시간 전) 재예약 등에 쓴다.
+  final Future<void> Function(List<ScheduleEvent> events)? onEventsFetched;
 
   Future<TodayGuideResult> buildTodayGuide({
     required UserSettings settings,
     required CalendarService calendarService,
-    bool forceRefresh = false,
   }) async {
     final now = DateTime.now();
     final notices = <String>[];
 
-    final events = await _loadTodayEventsWithSnapshot(now, calendarService, notices, forceRefresh: forceRefresh);
+    final events = await calendarService.fetchEventsForDate(now);
+    await onEventsFetched?.call(events);
     final currentLocation = await locationService.resolveCurrentLocation(settings);
     if (currentLocation.isFallback) {
       notices.add('현재 위치를 가져오지 못해 ${currentLocation.label}를 기준으로 계산했어요.');
@@ -154,28 +151,6 @@ class GuideEngine {
     final outfit = OutfitRules.recommend(daySnapshots: daySnapshots, gender: settings.gender);
 
     return TodayGuideResult(generatedAt: now, eventGuides: eventGuides, outfit: outfit, notices: notices);
-  }
-
-  Future<List<ScheduleEvent>> _loadTodayEventsWithSnapshot(
-    DateTime now,
-    CalendarService calendarService,
-    List<String> notices, {
-    bool forceRefresh = false,
-  }) async {
-    if (!forceRefresh) {
-      final cached = await snapshotRepository.readTodaySnapshot(now);
-      // 빈 배열로 캐시된 경우는 "오늘 진짜 일정이 없어서"인지 "최초 조회가
-      // 실패해서 잘못 고정된 것"인지 구분할 수 없다. 재조회 비용이 크지
-      // 않으니, 비어있으면 캐시를 신뢰하지 않고 다시 시도해서 스스로
-      // 복구되게 한다(일정이 실제로 하나라도 잡히면 그때부터는 그대로 고정).
-      if (cached != null && cached.isNotEmpty) return cached;
-    }
-
-    final fresh = await calendarService.fetchEventsForDate(now);
-    await snapshotRepository.writeTodaySnapshot(now, fresh);
-    notices.add('일정은 오늘 최초 조회 시점 기준으로 고정돼요. 이후 추가/수정된 일정은 반영되지 않아요.');
-    await onFreshEventsFetched?.call(fresh);
-    return fresh;
   }
 
   Future<List<WeatherSnapshot>> _safeForecast(double lat, double lng, List<String> notices) async {

@@ -58,21 +58,16 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
       },
     );
     await service.requestPermission();
-    if (_settings.onboardingCompleted) {
-      await service.scheduleDaily(hour: _settings.alarmHour, minute: _settings.alarmMinute);
-    }
     if (mounted) setState(() => _notificationService = service);
   }
 
   Future<void> _handleOnboardingComplete(UserSettings settings) async {
     await widget.settingsRepository.save(settings);
-    await _notificationService?.scheduleDaily(hour: settings.alarmHour, minute: settings.alarmMinute);
     if (mounted) setState(() => _settings = settings);
   }
 
   Future<void> _handleSettingsSaved(UserSettings settings) async {
     await widget.settingsRepository.save(settings);
-    await _notificationService?.scheduleDaily(hour: settings.alarmHour, minute: settings.alarmMinute);
     if (mounted) setState(() => _settings = settings);
   }
 
@@ -95,7 +90,7 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
           ? TodayGuideScreen(
               settings: _settings,
               onOpenSettings: _openSettings,
-              onFreshEventsFetched: (events) => _notificationService?.scheduleEventReminders(events) ?? Future.value(),
+              onEventsFetched: (events) => _notificationService?.scheduleEventReminders(events) ?? Future.value(),
             )
           : OnboardingScreen(onComplete: _handleOnboardingComplete),
     );

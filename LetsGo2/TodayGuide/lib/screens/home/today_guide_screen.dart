@@ -10,7 +10,6 @@ import '../../services/guide_engine.dart';
 import '../../services/location_service.dart';
 import '../../services/route/naver_driving_route_service.dart';
 import '../../services/route/odsay_transit_route_service.dart';
-import '../../services/schedule_snapshot_repository.dart';
 import '../../services/weather/kma_weather_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_alert_dialog.dart';
@@ -19,22 +18,21 @@ import '../onboarding/widgets/timetree_webview_login_screen.dart';
 import 'widgets/outfit_card.dart';
 import 'widgets/schedule_timeline_card.dart';
 
-/// 오늘의 지침서 메인 화면. 알림을 탭하거나 앱을 열 때마다 그 시점의
-/// 위치를 기준으로 지침을 새로 계산한다.
+/// 오늘의 지침서 메인 화면. 앱을 열거나 새로고침할 때마다 그 시점의
+/// 위치와 TimeTree 일정을 매번 새로 가져와 지침을 계산한다.
 class TodayGuideScreen extends StatefulWidget {
   const TodayGuideScreen({
     super.key,
     required this.settings,
     required this.onOpenSettings,
-    this.onFreshEventsFetched,
+    this.onEventsFetched,
   });
 
   final UserSettings settings;
   final VoidCallback onOpenSettings;
 
-  /// 그날 일정을 캘린더에서 새로 조회했을 때(캐시가 아닐 때)만 호출된다.
-  /// 일정별 사전 알림(3시간 전) 예약에 쓴다.
-  final Future<void> Function(List<ScheduleEvent> events)? onFreshEventsFetched;
+  /// 일정을 조회할 때마다 호출된다. 일정별 사전 알림(3시간 전) 재예약에 쓴다.
+  final Future<void> Function(List<ScheduleEvent> events)? onEventsFetched;
 
   @override
   State<TodayGuideScreen> createState() => _TodayGuideScreenState();
@@ -48,9 +46,8 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     weatherService: KmaWeatherService(),
     drivingRouteService: NaverDrivingRouteService(),
     transitRouteService: OdsayTransitRouteService(),
-    snapshotRepository: ScheduleSnapshotRepository(),
     locationOverrideRepository: _locationOverrideRepository,
-    onFreshEventsFetched: widget.onFreshEventsFetched,
+    onEventsFetched: widget.onEventsFetched,
   );
 
   late Future<TodayGuideResult> _future;
@@ -72,21 +69,18 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     }
   }
 
-  Future<TodayGuideResult> _load({bool forceRefresh = false}) {
+  Future<TodayGuideResult> _load() {
     _locationPromptShown = false;
     return _guideEngine.buildTodayGuide(
       settings: widget.settings,
       calendarService: buildCalendarService(widget.settings),
-      forceRefresh: forceRefresh,
     );
   }
 
   Future<void> _refresh() async {
     late final Future<TodayGuideResult> next;
     setState(() {
-      // 사용자가 명시적으로 당겨서 새로고침하면, 그날 캐시된 스냅샷이
-      // 비어있거나 오래됐더라도 TimeTree를 다시 조회한다.
-      next = _load(forceRefresh: true);
+      next = _load();
       _future = next;
     });
     // setState의 콜백은 반환값이 없어야 한다(대입식을 화살표 함수 몸체로 쓰면

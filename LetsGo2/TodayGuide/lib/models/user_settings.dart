@@ -23,8 +23,6 @@ enum Gender {
 
 /// 초기 셋팅값 + 앱 전역 설정
 class UserSettings {
-  /// 알람(오늘의 지침서) 송신 시각, 분 단위(0~1439). 디폴트 08:00 = 480.
-  final int alarmMinuteOfDay;
   final Gender gender;
   final int age;
 
@@ -51,7 +49,6 @@ class UserSettings {
   final bool onboardingCompleted;
 
   const UserSettings({
-    this.alarmMinuteOfDay = 8 * 60,
     this.gender = Gender.other,
     this.age = 0,
     this.homeAddress,
@@ -67,15 +64,11 @@ class UserSettings {
     this.onboardingCompleted = false,
   });
 
-  int get alarmHour => alarmMinuteOfDay ~/ 60;
-  int get alarmMinute => alarmMinuteOfDay % 60;
-
   bool get hasFallbackAddress => homeAddress != null || workAddress != null;
 
   bool get hasTimeTreeCalendar => timeTreeCalendarId != null;
 
   UserSettings copyWith({
-    int? alarmMinuteOfDay,
     Gender? gender,
     int? age,
     String? homeAddress,
@@ -91,7 +84,6 @@ class UserSettings {
     bool? onboardingCompleted,
   }) {
     return UserSettings(
-      alarmMinuteOfDay: alarmMinuteOfDay ?? this.alarmMinuteOfDay,
       gender: gender ?? this.gender,
       age: age ?? this.age,
       homeAddress: homeAddress ?? this.homeAddress,
@@ -109,7 +101,6 @@ class UserSettings {
   }
 
   Map<String, dynamic> toJson() => {
-        'alarmMinuteOfDay': alarmMinuteOfDay,
         'gender': gender.name,
         'age': age,
         'homeAddress': homeAddress,
@@ -126,7 +117,6 @@ class UserSettings {
       };
 
   factory UserSettings.fromJson(Map<String, dynamic> json) => UserSettings(
-        alarmMinuteOfDay: json['alarmMinuteOfDay'] as int? ?? 8 * 60,
         gender: Gender.fromName(json['gender'] as String? ?? 'other'),
         age: json['age'] as int? ?? 0,
         homeAddress: json['homeAddress'] as String?,

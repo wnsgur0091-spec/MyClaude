@@ -5,8 +5,8 @@ import 'package:timezone/timezone.dart' as tz;
 import '../models/event_attendee_role.dart';
 import '../models/schedule_event.dart';
 
-/// 매일 사용자가 설정한 시각(디폴트 08:00)에 "오늘의 지침서" 알림을 보낸다.
-/// 추가로, 그날 일정마다 시작 3시간 전에 출발 준비 알림도 보낸다.
+/// 일정마다 시작 3시간 전에 출발 준비 알림을 보낸다. 이게 유일한 알림
+/// 체계다(고정 시각 알람은 없음).
 /// 알림 자체에는 미리 계산된 지침을 담지 않고, 사용자가 알림을 탭한 시점에만
 /// 위치/일정/날씨를 계산한다(트리거 시점의 제약을 피하기 위한 설계 — GPS를
 /// 못 가져오면 기본 출발지로 대체하는 로직도 그 계산 시점에 동일하게 적용됨).
@@ -19,9 +19,6 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _plugin;
 
-  static const _channelId = 'today_guide_daily';
-  static const _channelName = '오늘의 지침서';
-  static const _notificationId = 1001;
   static const tapPayload = 'open_today_guide';
 
   static const _eventReminderChannelId = 'today_guide_event_reminder';
@@ -29,6 +26,9 @@ class NotificationService {
   static const _eventReminderIdBase = 2000;
   static const _eventReminderSlotCount = 50;
   static const _reminderLeadTime = Duration(hours: 3);
+
+  /// 예전 버전(고정 시각 일일 알람)에서 쓰던 알림 id. 남아있으면 취소만 한다.
+  static const _legacyDailyNotificationId = 1001;
 
   static Future<NotificationService> create({
     required void Function(String? payload) onNotificationTap,
@@ -44,6 +44,7 @@ class NotificationService {
       initSettings,
       onDidReceiveNotificationResponse: (response) => onNotificationTap(response.payload),
     );
+    await plugin.cancel(_legacyDailyNotificationId);
 
     return NotificationService(plugin);
   }
@@ -54,34 +55,11 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
-  Future<void> scheduleDaily({required int hour, required int minute}) async {
-    await _plugin.zonedSchedule(
-      _notificationId,
-      '오늘의 지침서가 도착했어요',
-      '오늘의 동선과 옷차림, 준비물을 확인해보세요.',
-      _nextInstanceOf(hour, minute),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: '매일 설정한 시각에 오늘의 지침서를 알려줍니다.',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: tapPayload,
-    );
-  }
-
-  /// 그날 새로 조회된 일정을 기준으로, 각 일정 시작 3시간 전에 출발 준비
-  /// 알림을 예약한다. 본인 일정과 같이 하는 일정만 알림을 보내고,
-  /// 배우자 단독 일정 및 역할 미지정 일정은 제외한다. 이미 3시간 전
-  /// 시점이 지난 일정도 건너뛴다.
-  /// 그날 최초 조회(스냅샷을 새로 쓸 때) 시점에 한 번만 호출해야 한다.
+  /// 조회된 일정을 기준으로, 각 일정 시작 3시간 전에 출발 준비 알림을
+  /// 예약한다. 본인 일정과 같이 하는 일정만 알림을 보내고, 배우자 단독
+  /// 일정 및 역할 미지정 일정은 제외한다. 이미 3시간 전 시점이 지난
+  /// 일정도 건너뛴다. 앱을 열거나 새로고침할 때마다 호출돼서 최신 일정
+  /// 기준으로 다시 계산된다.
   Future<void> scheduleEventReminders(List<ScheduleEvent> events) async {
     for (var i = 0; i < _eventReminderSlotCount; i++) {
       await _plugin.cancel(_eventReminderIdBase + i);
@@ -116,14 +94,5 @@ class NotificationService {
         payload: tapPayload,
       );
     }
-  }
-
-  tz.TZDateTime _nextInstanceOf(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
   }
 }
