@@ -7,14 +7,17 @@ class OutfitRules {
   static OutfitRecommendation recommend({
     required List<WeatherSnapshot> daySnapshots,
     required Gender gender,
+    bool noEventsReason = false,
   }) {
     if (daySnapshots.isEmpty) {
-      return const OutfitRecommendation(
+      return OutfitRecommendation(
         top: '가벼운 겉옷',
         bottom: '편한 바지',
         shoes: '운동화',
-        items: [],
-        reason: '오늘 일정 시간대의 날씨 정보를 가져오지 못해 일반적인 차림을 안내해요.',
+        items: const [],
+        reason: noEventsReason
+            ? '오늘 등록된 일정이 없어 일반적인 차림을 안내해요.'
+            : '오늘 일정 시간대의 날씨 정보를 일시적으로 가져오지 못해 일반적인 차림을 안내해요.',
       );
     }
 

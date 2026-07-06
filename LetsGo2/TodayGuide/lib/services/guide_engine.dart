@@ -55,7 +55,11 @@ class GuideEngine {
       return TodayGuideResult(
         generatedAt: now,
         eventGuides: const [],
-        outfit: OutfitRules.recommend(daySnapshots: const [], gender: settings.gender),
+        outfit: OutfitRules.recommend(
+          daySnapshots: const [],
+          gender: settings.gender,
+          noEventsReason: true,
+        ),
         notices: [...notices, '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.'],
       );
     }
@@ -160,7 +164,11 @@ class GuideEngine {
   }) async {
     if (!forceRefresh) {
       final cached = await snapshotRepository.readTodaySnapshot(now);
-      if (cached != null) return cached;
+      // 빈 배열로 캐시된 경우는 "오늘 진짜 일정이 없어서"인지 "최초 조회가
+      // 실패해서 잘못 고정된 것"인지 구분할 수 없다. 재조회 비용이 크지
+      // 않으니, 비어있으면 캐시를 신뢰하지 않고 다시 시도해서 스스로
+      // 복구되게 한다(일정이 실제로 하나라도 잡히면 그때부터는 그대로 고정).
+      if (cached != null && cached.isNotEmpty) return cached;
     }
 
     final fresh = await calendarService.fetchEventsForDate(now);
