@@ -44,7 +44,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? _timeTreeCalendarId;
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
-  Map<int, String> _timeTreeLabelNames = {};
 
   static const _stepCount = 5;
 
@@ -214,7 +213,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
-          children: Gender.values.map((g) {
+          children: Gender.values.where((g) => g != Gender.other).map((g) {
             return ChoiceChip(
               label: Text(g.label),
               selected: _gender == g,
@@ -314,13 +313,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           initialCalendarId: _timeTreeCalendarId,
           initialCalendarName: _timeTreeCalendarName,
           initialLabelRoles: _timeTreeLabelRoles,
-          initialLabelNames: _timeTreeLabelNames,
-          onChanged: ({required calendarId, required calendarName, required labelRoles, required labelNames}) {
+          onChanged: ({required calendarId, required calendarName, required labelRoles}) {
             setState(() {
               _timeTreeCalendarId = calendarId;
               _timeTreeCalendarName = calendarName;
               _timeTreeLabelRoles = labelRoles;
-              _timeTreeLabelNames = labelNames;
             });
           },
         ),
@@ -387,7 +384,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       timeTreeCalendarId: _timeTreeCalendarId,
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,
-      timeTreeLabelNames: _timeTreeLabelNames,
       onboardingCompleted: true,
     );
     await widget.onComplete(settings);

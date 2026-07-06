@@ -44,10 +44,6 @@ class UserSettings {
   /// TimeTree 라벨(색상) id -> 이 라벨이 누구 일정인지.
   final Map<int, EventAttendeeRole> timeTreeLabelRoles;
 
-  /// TimeTree 라벨(색상) id -> 사용자가 직접 붙인 이름(예: "딥 스카이블루").
-  /// TimeTree API가 기본(미변경) 라벨은 이름을 주지 않아서 화면 표시용으로 둔다.
-  final Map<int, String> timeTreeLabelNames;
-
   /// 이 기기가 배우자 기기인지(기종으로 자동 추정, 설정에서 수동 변경 가능).
   /// null이면 아직 추정 전(최초 실행 시 자동으로 채워짐).
   final bool? isSpouseDevice;
@@ -67,7 +63,6 @@ class UserSettings {
     this.timeTreeCalendarId,
     this.timeTreeCalendarName,
     this.timeTreeLabelRoles = const {},
-    this.timeTreeLabelNames = const {},
     this.isSpouseDevice,
     this.onboardingCompleted = false,
   });
@@ -92,7 +87,6 @@ class UserSettings {
     String? timeTreeCalendarId,
     String? timeTreeCalendarName,
     Map<int, EventAttendeeRole>? timeTreeLabelRoles,
-    Map<int, String>? timeTreeLabelNames,
     bool? isSpouseDevice,
     bool? onboardingCompleted,
   }) {
@@ -109,7 +103,6 @@ class UserSettings {
       timeTreeCalendarId: timeTreeCalendarId ?? this.timeTreeCalendarId,
       timeTreeCalendarName: timeTreeCalendarName ?? this.timeTreeCalendarName,
       timeTreeLabelRoles: timeTreeLabelRoles ?? this.timeTreeLabelRoles,
-      timeTreeLabelNames: timeTreeLabelNames ?? this.timeTreeLabelNames,
       isSpouseDevice: isSpouseDevice ?? this.isSpouseDevice,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     );
@@ -128,7 +121,6 @@ class UserSettings {
         'timeTreeCalendarId': timeTreeCalendarId,
         'timeTreeCalendarName': timeTreeCalendarName,
         'timeTreeLabelRoles': timeTreeLabelRoles.map((id, role) => MapEntry('$id', role.name)),
-        'timeTreeLabelNames': timeTreeLabelNames.map((id, name) => MapEntry('$id', name)),
         'isSpouseDevice': isSpouseDevice,
         'onboardingCompleted': onboardingCompleted,
       };
@@ -147,9 +139,6 @@ class UserSettings {
         timeTreeCalendarName: json['timeTreeCalendarName'] as String?,
         timeTreeLabelRoles: (json['timeTreeLabelRoles'] as Map<String, dynamic>? ?? const {}).map(
           (id, role) => MapEntry(int.parse(id), EventAttendeeRole.fromName(role as String?)),
-        ),
-        timeTreeLabelNames: (json['timeTreeLabelNames'] as Map<String, dynamic>? ?? const {}).map(
-          (id, name) => MapEntry(int.parse(id), name as String),
         ),
         isSpouseDevice: json['isSpouseDevice'] as bool?,
         onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,

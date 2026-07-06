@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// TimeTree는 3rd-party 조회용 공식 API를 제공하지 않는다. 이 클라이언트는
@@ -78,7 +79,8 @@ class TimeTreeClient {
     final response = await _client.get(uri, headers: _authHeaders(sessionId));
     _checkSession(response);
     if (response.statusCode != 200) {
-      throw TimeTreeAuthException('TimeTree 캘린더 목록 조회 실패 (${response.statusCode})');
+      debugPrint('TimeTree getCalendars 실패 (${response.statusCode}): ${response.body}');
+      throw TimeTreeAuthException('TimeTree 캘린더 목록을 가져오지 못했습니다.');
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final calendars = (body['calendars'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
@@ -114,7 +116,8 @@ class TimeTreeClient {
       final response = await _client.get(uri, headers: _authHeaders(sessionId));
       _checkSession(response);
       if (response.statusCode != 200) {
-        throw TimeTreeAuthException('TimeTree 일정 조회 실패 (${response.statusCode})');
+        debugPrint('TimeTree getEvents 실패 (${response.statusCode}): ${response.body}');
+        throw TimeTreeAuthException('TimeTree 일정을 가져오지 못했습니다.');
       }
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -143,7 +146,8 @@ class TimeTreeClient {
     } catch (_) {
       // 무시하고 기본 메시지로 대체.
     }
-    return 'TimeTree 로그인에 실패했습니다 (${response.statusCode}).';
+    debugPrint('TimeTree 로그인 실패 (${response.statusCode}): ${response.body}');
+    return 'TimeTree 로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.';
   }
 
   String? _extractSessionId(String? setCookieHeader) {

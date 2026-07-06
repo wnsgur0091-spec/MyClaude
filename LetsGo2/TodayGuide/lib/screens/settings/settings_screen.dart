@@ -34,8 +34,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _timeTreeCalendarId;
   String? _timeTreeCalendarName;
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
-  Map<int, String> _timeTreeLabelNames = {};
   bool _isSpouseDevice = false;
+  bool _resolvingAddress = false;
 
   @override
   void initState() {
@@ -53,7 +53,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _timeTreeCalendarId = s.timeTreeCalendarId;
     _timeTreeCalendarName = s.timeTreeCalendarName;
     _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
-    _timeTreeLabelNames = Map.of(s.timeTreeLabelNames);
     _isSpouseDevice = s.isSpouseDevice ?? false;
   }
 
@@ -155,6 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Wrap(
           spacing: 8,
           children: Gender.values
+              .where((g) => g != Gender.other)
               .map((g) => ChoiceChip(
                     label: Text(g.label),
                     selected: _gender == g,
@@ -185,19 +185,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             controller: controller,
             style: const TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(labelText: label),
+            onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.search, color: AppColors.neonCyan),
-          onPressed: controller.text.trim().isEmpty
+          onPressed: _resolvingAddress || controller.text.trim().isEmpty
               ? null
               : () async {
+                  setState(() => _resolvingAddress = true);
                   final result = await _locationService.geocodeAddress(controller.text.trim());
-                  if (result != null) {
-                    onResolved(result.lat, result.lng);
-                  } else if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('주소를 찾지 못했어요.')));
+                  if (result != null) onResolved(result.lat, result.lng);
+                  if (mounted) setState(() => _resolvingAddress = false);
+                  if (mounted && result == null) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(const SnackBar(content: Text('주소를 찾지 못했어요. 다시 확인해주세요.')));
                   }
                 },
         ),
@@ -210,13 +213,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       initialCalendarId: _timeTreeCalendarId,
       initialCalendarName: _timeTreeCalendarName,
       initialLabelRoles: _timeTreeLabelRoles,
-      initialLabelNames: _timeTreeLabelNames,
-      onChanged: ({required calendarId, required calendarName, required labelRoles, required labelNames}) {
+      onChanged: ({required calendarId, required calendarName, required labelRoles}) {
         setState(() {
           _timeTreeCalendarId = calendarId;
           _timeTreeCalendarName = calendarName;
           _timeTreeLabelRoles = labelRoles;
-          _timeTreeLabelNames = labelNames;
         });
       },
     );
@@ -252,7 +253,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       timeTreeCalendarId: _timeTreeCalendarId,
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,
-      timeTreeLabelNames: _timeTreeLabelNames,
       isSpouseDevice: _isSpouseDevice,
       onboardingCompleted: true,
     );

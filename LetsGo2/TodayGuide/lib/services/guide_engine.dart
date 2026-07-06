@@ -40,11 +40,12 @@ class GuideEngine {
   Future<TodayGuideResult> buildTodayGuide({
     required UserSettings settings,
     required CalendarService calendarService,
+    bool forceRefresh = false,
   }) async {
     final now = DateTime.now();
     final notices = <String>[];
 
-    final events = await _loadTodayEventsWithSnapshot(now, calendarService, notices);
+    final events = await _loadTodayEventsWithSnapshot(now, calendarService, notices, forceRefresh: forceRefresh);
     final currentLocation = await locationService.resolveCurrentLocation(settings);
     if (currentLocation.isFallback) {
       notices.add('현재 위치를 가져오지 못해 ${currentLocation.label}를 기준으로 계산했어요.');
@@ -146,10 +147,13 @@ class GuideEngine {
   Future<List<ScheduleEvent>> _loadTodayEventsWithSnapshot(
     DateTime now,
     CalendarService calendarService,
-    List<String> notices,
-  ) async {
-    final cached = await snapshotRepository.readTodaySnapshot(now);
-    if (cached != null) return cached;
+    List<String> notices, {
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh) {
+      final cached = await snapshotRepository.readTodaySnapshot(now);
+      if (cached != null) return cached;
+    }
 
     final fresh = await calendarService.fetchEventsForDate(now);
     await snapshotRepository.writeTodaySnapshot(now, fresh);

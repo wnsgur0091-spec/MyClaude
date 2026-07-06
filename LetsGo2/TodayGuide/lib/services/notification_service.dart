@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../models/event_attendee_role.dart';
 import '../models/schedule_event.dart';
 
 /// 매일 사용자가 설정한 시각(디폴트 08:00)에 "오늘의 지침서" 알림을 보낸다.
@@ -77,8 +78,9 @@ class NotificationService {
   }
 
   /// 그날 새로 조회된 일정을 기준으로, 각 일정 시작 3시간 전에 출발 준비
-  /// 알림을 예약한다. 배우자 단독 일정(본인 이동경로 계산 제외 대상)은
-  /// 제외하고, 이미 3시간 전 시점이 지난 일정도 건너뛴다.
+  /// 알림을 예약한다. 본인 일정과 같이 하는 일정만 알림을 보내고,
+  /// 배우자 단독 일정 및 역할 미지정 일정은 제외한다. 이미 3시간 전
+  /// 시점이 지난 일정도 건너뛴다.
   /// 그날 최초 조회(스냅샷을 새로 쓸 때) 시점에 한 번만 호출해야 한다.
   Future<void> scheduleEventReminders(List<ScheduleEvent> events) async {
     for (var i = 0; i < _eventReminderSlotCount; i++) {
@@ -86,7 +88,9 @@ class NotificationService {
     }
 
     final now = tz.TZDateTime.now(tz.local);
-    final relevant = events.where((e) => e.attendeeRole.includeInOwnRoute).toList();
+    final relevant = events
+        .where((e) => e.attendeeRole == EventAttendeeRole.me || e.attendeeRole == EventAttendeeRole.both)
+        .toList();
 
     for (var i = 0; i < relevant.length && i < _eventReminderSlotCount; i++) {
       final event = relevant[i];

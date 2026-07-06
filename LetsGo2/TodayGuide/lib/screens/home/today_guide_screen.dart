@@ -4,6 +4,7 @@ import '../../models/schedule_event.dart';
 import '../../models/today_guide_result.dart';
 import '../../models/user_settings.dart';
 import '../../services/calendar/calendar_service_factory.dart';
+import '../../services/calendar/timetree_account_service.dart';
 import '../../services/event_location_override_repository.dart';
 import '../../services/guide_engine.dart';
 import '../../services/location_service.dart';
@@ -14,6 +15,7 @@ import '../../services/weather/kma_weather_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_alert_dialog.dart';
 import '../../widgets/starfield_background.dart';
+import '../onboarding/widgets/timetree_webview_login_screen.dart';
 import 'widgets/outfit_card.dart';
 import 'widgets/schedule_timeline_card.dart';
 
@@ -70,18 +72,21 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     }
   }
 
-  Future<TodayGuideResult> _load() {
+  Future<TodayGuideResult> _load({bool forceRefresh = false}) {
     _locationPromptShown = false;
     return _guideEngine.buildTodayGuide(
       settings: widget.settings,
       calendarService: buildCalendarService(widget.settings),
+      forceRefresh: forceRefresh,
     );
   }
 
   Future<void> _refresh() async {
     late final Future<TodayGuideResult> next;
     setState(() {
-      next = _load();
+      // 사용자가 명시적으로 당겨서 새로고침하면, 그날 캐시된 스냅샷이
+      // 비어있거나 오래됐더라도 TimeTree를 다시 조회한다.
+      next = _load(forceRefresh: true);
       _future = next;
     });
     // setState의 콜백은 반환값이 없어야 한다(대입식을 화살표 함수 몸체로 쓰면
@@ -93,6 +98,21 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
       // FutureBuilder도 같은 에러를 인라인으로 보여주지만, "다시 시도"를 눌러
       // 재시도했을 때는 확인 버튼이 있는 알럿으로 한 번 더 명확히 알려준다.
       if (mounted) await showAppAlertDialog(context, title: '다시 시도했지만 실패했어요', message: _formatError(e));
+    }
+  }
+
+  /// 장소 입력 등 캘린더 재조회가 필요 없는 변경 후에 쓰는 가벼운 재계산.
+  /// (당일 일정 캐시는 그대로 두고, 새로 저장된 장소만 반영해서 다시 계산한다.)
+  Future<void> _recompute() async {
+    late final Future<TodayGuideResult> next;
+    setState(() {
+      next = _load();
+      _future = next;
+    });
+    try {
+      await next;
+    } catch (_) {
+      // 인라인 에러 화면으로 충분하므로 별도 알럿은 띄우지 않는다.
     }
   }
 
@@ -166,13 +186,19 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                       textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     OutlinedButton(onPressed: _refresh, child: const Text('다시 시도')),
                     if (needsSettings) ...[
-                      const SizedBox(width: 12),
                       FilledButton(onPressed: widget.onOpenSettings, child: const Text('설정으로 이동')),
+                      OutlinedButton.icon(
+                        onPressed: _loginWithTimeTree,
+                        icon: const Icon(Icons.public, size: 18),
+                        label: const Text('TimeTree로 로그인'),
+                      ),
                     ],
                   ],
                 ),
@@ -182,6 +208,22 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         ),
       ],
     );
+  }
+
+  /// 메인 화면 에러 상태(=TimeTree 미연동)에서 바로 웹뷰 로그인을 진행하고,
+  /// 성공하면 캘린더/라벨 선택을 마저 하도록 설정 화면으로 이동한다.
+  Future<void> _loginWithTimeTree() async {
+    final sessionId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const TimeTreeWebViewLoginScreen()),
+    );
+    if (sessionId == null || sessionId.isEmpty) return;
+    try {
+      await TimeTreeAccountService().loginWithSession(sessionId);
+    } catch (e) {
+      if (mounted) await showAppAlertDialog(context, title: 'TimeTree 로그인 실패', message: '$e');
+      return;
+    }
+    widget.onOpenSettings();
   }
 
   /// StateError 등의 기술적인 "Bad state: " 접두사를 걷어내고 사용자에게 보여준다.
@@ -208,7 +250,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
       final saved = await _showLocationDialog(event);
       anySaved = anySaved || saved;
     }
-    if (anySaved && mounted) await _refresh();
+    if (anySaved && mounted) await _recompute();
   }
 
   Future<bool> _showLocationDialog(ScheduleEvent event) async {
@@ -241,7 +283,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
 
   Future<void> _addLocationFor(ScheduleEvent event) async {
     final saved = await _showLocationDialog(event);
-    if (saved && mounted) await _refresh();
+    if (saved && mounted) await _recompute();
   }
 
   Widget _buildResult(TodayGuideResult result) {
