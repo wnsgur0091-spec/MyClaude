@@ -26,4 +26,9 @@ class EventLocationOverrideRepository {
     all[eventId] = address;
     await prefs.setString(_key, jsonEncode(all));
   }
+
+  Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
 }

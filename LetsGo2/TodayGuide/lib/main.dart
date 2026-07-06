@@ -4,7 +4,9 @@ import 'models/user_settings.dart';
 import 'screens/home/today_guide_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'services/calendar/timetree_account_service.dart';
 import 'services/device_role_service.dart';
+import 'services/event_location_override_repository.dart';
 import 'services/notification_service.dart';
 import 'services/settings_repository.dart';
 import 'theme/app_theme.dart';
@@ -71,6 +73,16 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
     if (mounted) setState(() => _settings = settings);
   }
 
+  /// 설정/로그인/일정 장소 오버라이드/예약된 알림을 모두 지우고 온보딩부터
+  /// 다시 시작하게 한다.
+  Future<void> _resetApp() async {
+    await _notificationService?.cancelAll();
+    await widget.settingsRepository.clear();
+    await TimeTreeAccountService().logout();
+    await EventLocationOverrideRepository().clearAll();
+    if (mounted) setState(() => _settings = const UserSettings());
+  }
+
   void _openSettings() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -91,6 +103,7 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
               settings: _settings,
               onOpenSettings: _openSettings,
               onEventsFetched: (events) => _notificationService?.scheduleEventReminders(events) ?? Future.value(),
+              onResetApp: _resetApp,
             )
           : OnboardingScreen(onComplete: _handleOnboardingComplete),
     );

@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/outfit_recommendation.dart';
+import '../../../models/schedule_event.dart';
+import '../../../models/weather_snapshot.dart';
 import '../../../theme/app_theme.dart';
 
 class OutfitCard extends StatelessWidget {
-  const OutfitCard({super.key, required this.outfit});
+  const OutfitCard({
+    super.key,
+    required this.outfit,
+    this.referenceEvent,
+    this.hourlyWeather = const [],
+  });
 
   final OutfitRecommendation outfit;
+
+  /// 옷차림 추천이 기준으로 삼은 일정(가장 가까운 다음 일정). 없으면 표시하지 않는다.
+  final ScheduleEvent? referenceEvent;
+
+  /// [referenceEvent] 구간의 1시간 간격 예상 날씨.
+  final List<WeatherSnapshot> hourlyWeather;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +46,13 @@ class OutfitCard extends StatelessWidget {
                   style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
+          if (referenceEvent != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '"${referenceEvent!.title}" 일정(${_formatRange(referenceEvent!.start, referenceEvent!.end)}) 기준으로 안내해요.',
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 16),
           _OutfitRow(label: '상의', value: outfit.top),
           _OutfitRow(label: '하의', value: outfit.bottom),
@@ -54,9 +74,29 @@ class OutfitCard extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           Text(outfit.reason, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          if (hourlyWeather.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text('시간대별 예상 날씨',
+                style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 74,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: hourlyWeather.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) => _HourlyWeatherTile(snapshot: hourlyWeather[index]),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _formatRange(DateTime start, DateTime end) {
+    String fmt(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return '${fmt(start)}~${fmt(end)}';
   }
 }
 
@@ -75,6 +115,36 @@ class _OutfitRow extends StatelessWidget {
           SizedBox(width: 48, child: Text(label, style: const TextStyle(color: AppColors.textSecondary))),
           const SizedBox(width: 8),
           Expanded(child: Text(value, style: const TextStyle(color: AppColors.textPrimary))),
+        ],
+      ),
+    );
+  }
+}
+
+class _HourlyWeatherTile extends StatelessWidget {
+  const _HourlyWeatherTile({required this.snapshot});
+
+  final WeatherSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: AppColors.spacePanelAlt,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('${snapshot.time.hour}시', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text('${snapshot.tempC.round()}℃',
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('${snapshot.precipitationProbability}%',
+              style: const TextStyle(color: AppColors.neonCyan, fontSize: 11)),
         ],
       ),
     );

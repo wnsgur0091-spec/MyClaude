@@ -22,4 +22,9 @@ class SettingsRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(settings.toJson()));
   }
+
+  Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
 }

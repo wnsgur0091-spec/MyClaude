@@ -9,6 +9,7 @@ import 'location_service.dart';
 import 'outfit_rules.dart';
 import 'route/naver_driving_route_service.dart';
 import 'route/odsay_transit_route_service.dart';
+import 'weather/kma_uv_service.dart';
 import 'weather/kma_weather_service.dart';
 
 /// 오늘의 지침서 핵심 계산기.
@@ -23,14 +24,17 @@ class GuideEngine {
     required this.weatherService,
     required this.drivingRouteService,
     required this.transitRouteService,
+    KmaUvService? uvService,
     EventLocationOverrideRepository? locationOverrideRepository,
     this.onEventsFetched,
-  }) : locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
+  })  : uvService = uvService ?? KmaUvService(),
+        locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
   final KmaWeatherService weatherService;
   final NaverDrivingRouteService drivingRouteService;
   final OdsayTransitRouteService transitRouteService;
+  final KmaUvService uvService;
   final EventLocationOverrideRepository locationOverrideRepository;
 
   /// 일정을 조회할 때마다(=buildTodayGuide 호출마다) 호출된다.
@@ -59,7 +63,8 @@ class GuideEngine {
       notices.add('현재 위치를 가져오지 못해 ${currentLocation.label}를 기준으로 계산했어요.');
     }
 
-    final forecast = await _safeForecast(currentLocation.lat, currentLocation.lng, notices);
+    final rawForecast = await _safeForecast(currentLocation.lat, currentLocation.lng, notices);
+    final forecast = await _attachUv(rawForecast, currentLocation.lat, currentLocation.lng, notices);
 
     var originLat = currentLocation.lat;
     var originLng = currentLocation.lng;
@@ -106,7 +111,60 @@ class GuideEngine {
       noEventsReason: events.isEmpty,
     );
 
-    return TodayGuideResult(generatedAt: now, eventGuides: eventGuides, outfit: outfit, notices: notices);
+    // 옷차림은 "가장 가까운 다음 일정"을 기준으로 시간대별 날씨를 함께 보여준다.
+    // 최대 12시간까지만 보여줘서 종일 일정처럼 구간이 긴 경우에도 표가 너무
+    // 길어지지 않게 한다.
+    const maxHourlyRows = 12;
+    final outfitHourly = nextEvent == null
+        ? const <WeatherSnapshot>[]
+        : weatherService
+            .hourlyBreakdown(forecast, nextEvent.start, nextEvent.end)
+            .take(maxHourlyRows)
+            .toList();
+
+    return TodayGuideResult(
+      generatedAt: now,
+      eventGuides: eventGuides,
+      outfit: outfit,
+      outfitEvent: nextEvent,
+      outfitHourlyWeather: outfitHourly,
+      notices: notices,
+    );
+  }
+
+  /// 자외선지수를 조회해서 예보 목록에 붙여준다. 위경도를 도시명으로 바꾸지
+  /// 못하거나(매핑 안 된 지역) 조회에 실패하면, 자외선지수 없이도 우산 등
+  /// 다른 추천은 그대로 동작하게 하고 안내 문구만 남긴다.
+  Future<List<WeatherSnapshot>> _attachUv(
+    List<WeatherSnapshot> forecast,
+    double lat,
+    double lng,
+    List<String> notices,
+  ) async {
+    if (forecast.isEmpty) return forecast;
+
+    final cityName = await _safeCall(() => locationService.resolveCityName(lat, lng));
+    Map<DateTime, int> uvForecast = const {};
+    if (cityName != null) {
+      uvForecast = await _safeCall(() => uvService.fetchUvForecast(cityName: cityName, baseTime: DateTime.now())) ??
+          const {};
+    }
+
+    if (uvForecast.isEmpty) {
+      notices.add('자외선지수 정보를 가져오지 못해 선글라스/양산 추천은 표시되지 않았어요.');
+      return forecast;
+    }
+
+    return forecast
+        .map((s) => WeatherSnapshot(
+              time: s.time,
+              tempC: s.tempC,
+              precipitationType: s.precipitationType,
+              precipitationProbability: s.precipitationProbability,
+              skyCondition: s.skyCondition,
+              uvIndex: uvService.pickForTime(uvForecast, s.time),
+            ))
+        .toList();
   }
 
   /// 다음 일정의 3시간 전 알림이 정확히 언제 울리는지 안내하는 문구.
@@ -191,6 +249,10 @@ class GuideEngine {
           mode: TransportMode.car,
           durationMinutes: carMinutes,
           eventStart: event.start,
+          originLat: originLat,
+          originLng: originLng,
+          destinationLat: dest.lat,
+          destinationLng: dest.lng,
         );
       }
 
@@ -208,6 +270,10 @@ class GuideEngine {
           mode: TransportMode.transit,
           durationMinutes: transitMinutes,
           eventStart: event.start,
+          originLat: originLat,
+          originLng: originLng,
+          destinationLat: dest.lat,
+          destinationLng: dest.lng,
         );
       }
 

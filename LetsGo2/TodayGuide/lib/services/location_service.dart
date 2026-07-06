@@ -80,6 +80,23 @@ class LocationService {
     throw StateError('GPS를 가져올 수 없고 기본 출발지도 설정되어 있지 않습니다.');
   }
 
+  /// 자외선지수 조회는 위경도가 아니라 도시명 기반 지역코드가 필요해서,
+  /// 좌표를 역지오코딩해서 알려진 도시명(서울/인천/부산)으로 대략 환산한다.
+  /// 매핑되지 않은 지역이면 null을 반환하고, 상위 로직은 자외선지수 없이 동작한다.
+  Future<String?> resolveCityName(double lat, double lng) async {
+    try {
+      final placemarks = await geocoding.placemarkFromCoordinates(lat, lng);
+      if (placemarks.isEmpty) return null;
+      final area = placemarks.first.administrativeArea ?? '';
+      if (area.contains('서울')) return '서울';
+      if (area.contains('인천')) return '인천';
+      if (area.contains('부산')) return '부산';
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 온보딩/일정 장소 문자열을 좌표로 변환할 때 사용.
   /// 네이버 Geocoding(도로명·지번 주소 모두 지원)을 우선 시도하고,
   /// 실패하면 안드로이드 네이티브 Geocoder(구글 백엔드)로 한 번 더 시도한다

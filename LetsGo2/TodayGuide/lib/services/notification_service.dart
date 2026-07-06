@@ -55,6 +55,13 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
+  /// 예약된 일정 알림을 전부 취소한다. 앱 초기화 시 사용.
+  Future<void> cancelAll() async {
+    for (var i = 0; i < _eventReminderSlotCount; i++) {
+      await _plugin.cancel(_eventReminderIdBase + i);
+    }
+  }
+
   /// 조회된 일정을 기준으로, 각 일정 시작 3시간 전에 출발 준비 알림을
   /// 예약한다. 본인 일정과 같이 하는 일정만 알림을 보내고, 배우자 단독
   /// 일정 및 역할 미지정 일정은 제외한다. 이미 3시간 전 시점이 지난

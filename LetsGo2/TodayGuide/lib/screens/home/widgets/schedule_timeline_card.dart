@@ -89,13 +89,6 @@ class ScheduleTimelineCard extends StatelessWidget {
               ),
             ),
           ],
-          if (guide.weather != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '예상 기온 ${guide.weather!.tempC.round()}℃ · 강수확률 ${guide.weather!.precipitationProbability}%',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
-            ),
-          ],
         ],
       ),
     );

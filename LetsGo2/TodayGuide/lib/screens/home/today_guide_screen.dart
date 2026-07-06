@@ -26,6 +26,7 @@ class TodayGuideScreen extends StatefulWidget {
     required this.settings,
     required this.onOpenSettings,
     this.onEventsFetched,
+    this.onResetApp,
   });
 
   final UserSettings settings;
@@ -33,6 +34,9 @@ class TodayGuideScreen extends StatefulWidget {
 
   /// 일정을 조회할 때마다 호출된다. 일정별 사전 알림(3시간 전) 재예약에 쓴다.
   final Future<void> Function(List<ScheduleEvent> events)? onEventsFetched;
+
+  /// "앱 초기화" 버튼을 누르고 사용자가 확인했을 때 호출된다.
+  final Future<void> Function()? onResetApp;
 
   @override
   State<TodayGuideScreen> createState() => _TodayGuideScreenState();
@@ -294,7 +298,11 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
               )),
         ],
         const SizedBox(height: 20),
-        OutfitCard(outfit: result.outfit),
+        OutfitCard(
+          outfit: result.outfit,
+          referenceEvent: result.outfitEvent,
+          hourlyWeather: result.outfitHourlyWeather,
+        ),
         const SizedBox(height: 24),
         const Text('오늘의 동선',
             style: TextStyle(
@@ -310,8 +318,43 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                   onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
                 ),
               )),
+        if (widget.onResetApp != null) ...[
+          const SizedBox(height: 32),
+          Center(
+            child: TextButton.icon(
+              onPressed: _confirmResetApp,
+              icon: const Icon(Icons.restart_alt, size: 18, color: AppColors.textSecondary),
+              label: const Text('앱 초기화', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  /// 앱 초기화 확인 다이얼로그. 확인하면 설정/로그인/알림을 모두 지우고
+  /// 온보딩부터 다시 시작한다.
+  Future<void> _confirmResetApp() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.spacePanel,
+        title: const Text('앱을 초기화할까요?', style: TextStyle(color: AppColors.textPrimary, fontSize: 16)),
+        content: const Text(
+          '프로필, 기본 출발지, TimeTree 연동, 저장된 장소가 모두 삭제되고 온보딩부터 다시 시작해요.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('취소')),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+            child: const Text('초기화'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await widget.onResetApp?.call();
   }
 
   Widget _buildHeader(TodayGuideResult result) {

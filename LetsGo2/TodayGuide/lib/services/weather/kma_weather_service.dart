@@ -93,6 +93,59 @@ class KmaWeatherService {
     return sorted.first;
   }
 
+  /// 기상청 단기예보는 3시간 간격으로만 오기 때문에, 일정 구간([start], [end))을
+  /// 1시간 단위로 보여주기 위해 앞뒤 3시간 예보 사이를 선형 보간한다. 기온은
+  /// 보간하고, 하늘상태/강수형태처럼 범주형인 값은 더 가까운 쪽 예보값을 그대로 쓴다.
+  /// (실제로 매시 관측된 값이 아니라 추정치라는 점에 유의)
+  List<WeatherSnapshot> hourlyBreakdown(List<WeatherSnapshot> forecast, DateTime start, DateTime end) {
+    if (forecast.isEmpty) return const [];
+    final sorted = [...forecast]..sort((a, b) => a.time.compareTo(b.time));
+
+    final hours = <WeatherSnapshot>[];
+    var t = DateTime(start.year, start.month, start.day, start.hour);
+    final endFloor = DateTime(end.year, end.month, end.day, end.hour);
+    while (!t.isAfter(endFloor)) {
+      hours.add(_interpolateAt(sorted, t));
+      t = t.add(const Duration(hours: 1));
+    }
+    return hours;
+  }
+
+  WeatherSnapshot _interpolateAt(List<WeatherSnapshot> sorted, DateTime t) {
+    WeatherSnapshot? before;
+    WeatherSnapshot? after;
+    for (final s in sorted) {
+      if (!s.time.isAfter(t)) before = s;
+      if (s.time.isAfter(t) && after == null) after = s;
+    }
+
+    if (before == null) return _copyAt(sorted.first, t);
+    if (after == null) return _copyAt(before, t);
+
+    final spanMinutes = after.time.difference(before.time).inMinutes;
+    final progress = spanMinutes == 0 ? 0.0 : t.difference(before.time).inMinutes / spanMinutes;
+    final nearer = progress < 0.5 ? before : after;
+    return WeatherSnapshot(
+      time: t,
+      tempC: before.tempC + (after.tempC - before.tempC) * progress,
+      precipitationType: nearer.precipitationType,
+      precipitationProbability:
+          (before.precipitationProbability + (after.precipitationProbability - before.precipitationProbability) * progress)
+              .round(),
+      skyCondition: nearer.skyCondition,
+      uvIndex: nearer.uvIndex,
+    );
+  }
+
+  WeatherSnapshot _copyAt(WeatherSnapshot source, DateTime t) => WeatherSnapshot(
+        time: t,
+        tempC: source.tempC,
+        precipitationType: source.precipitationType,
+        precipitationProbability: source.precipitationProbability,
+        skyCondition: source.skyCondition,
+        uvIndex: source.uvIndex,
+      );
+
   ({String dateStr, String timeStr}) _latestBaseDateTime(DateTime now) {
     const baseHours = [23, 20, 17, 14, 11, 8, 5, 2];
     // 발표 후 API 반영까지 지연이 있어 10분 여유를 둔다.

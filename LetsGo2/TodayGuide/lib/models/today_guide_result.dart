@@ -29,6 +29,13 @@ class TodayGuideResult {
   final List<EventGuide> eventGuides;
   final OutfitRecommendation outfit;
 
+  /// 옷차림 추천이 기준으로 삼은 일정(가장 가까운 다음 일정). 없으면 옷차림은
+  /// 오늘 등록된 일정 전체 날씨를 기준으로 계산된 것이다.
+  final ScheduleEvent? outfitEvent;
+
+  /// [outfitEvent] 구간을 1시간 간격으로 보간한 날씨. outfitEvent가 없으면 비어 있다.
+  final List<WeatherSnapshot> outfitHourlyWeather;
+
   /// 오늘 일정이 없을 때 등, 계산이 부분적으로 실패했을 때 표시할 안내 문구.
   final List<String> notices;
 
@@ -36,6 +43,8 @@ class TodayGuideResult {
     required this.generatedAt,
     required this.eventGuides,
     required this.outfit,
+    this.outfitEvent,
+    this.outfitHourlyWeather = const [],
     this.notices = const [],
   });
 }

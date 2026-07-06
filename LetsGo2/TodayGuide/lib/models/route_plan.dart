@@ -12,18 +12,30 @@ class RoutePlan {
   final int durationMinutes;
   final DateTime departBy;
   final DateTime arriveBy;
+  final double originLat;
+  final double originLng;
+  final double destinationLat;
+  final double destinationLng;
 
   const RoutePlan({
     required this.mode,
     required this.durationMinutes,
     required this.departBy,
     required this.arriveBy,
+    required this.originLat,
+    required this.originLng,
+    required this.destinationLat,
+    required this.destinationLng,
   });
 
   factory RoutePlan.forArrival({
     required TransportMode mode,
     required int durationMinutes,
     required DateTime eventStart,
+    required double originLat,
+    required double originLng,
+    required double destinationLat,
+    required double destinationLng,
     Duration buffer = const Duration(minutes: 15),
   }) {
     final arriveBy = eventStart.subtract(buffer);
@@ -32,6 +44,10 @@ class RoutePlan {
       durationMinutes: durationMinutes,
       departBy: arriveBy.subtract(Duration(minutes: durationMinutes)),
       arriveBy: arriveBy,
+      originLat: originLat,
+      originLng: originLng,
+      destinationLat: destinationLat,
+      destinationLng: destinationLng,
     );
   }
 }

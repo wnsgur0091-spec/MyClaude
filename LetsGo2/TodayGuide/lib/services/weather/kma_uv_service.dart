@@ -23,9 +23,12 @@ class KmaUvService {
     '부산': '2600000000',
   };
 
-  Future<int?> fetchUvIndex({required String cityName, required DateTime time}) async {
+  /// [baseTime] 기준 발표된 예보 하나(며칠치 3시간 간격 hNN 컬럼을 담고 있음)를
+  /// 가져와서, 그 안에 있는 모든 시각의 자외선지수를 시각->값 맵으로 반환한다.
+  /// 지역코드를 모르거나 API 키가 없거나 조회에 실패하면 빈 맵을 반환한다.
+  Future<Map<DateTime, int>> fetchUvForecast({required String cityName, required DateTime baseTime}) async {
     final areaNo = _knownAreaNoByCityName[cityName];
-    if (areaNo == null || AppConfig.kmaServiceKey.isEmpty) return null;
+    if (areaNo == null || AppConfig.kmaServiceKey.isEmpty) return const {};
 
     final uri = Uri.parse(_endpoint).replace(queryParameters: {
       'serviceKey': AppConfig.kmaServiceKey,
@@ -33,21 +36,41 @@ class KmaUvService {
       'numOfRows': '10',
       'dataType': 'JSON',
       'areaNo': areaNo,
-      'time': _formatBaseTime(time),
+      'time': _formatBaseTime(baseTime),
     });
 
     final response = await _client.get(uri);
-    if (response.statusCode != 200) return null;
+    if (response.statusCode != 200) return const {};
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final items = (body['response']?['body']?['items']?['item'] as List<dynamic>?) ?? const [];
-    if (items.isEmpty) return null;
+    if (items.isEmpty) return const {};
 
     final item = items.first as Map<String, dynamic>;
-    final hourKey = 'h${time.hour.toString().padLeft(2, '0')}';
-    final value = item[hourKey];
-    if (value == null) return null;
-    return int.tryParse('$value');
+    final result = <DateTime, int>{};
+    final referenceDay = DateTime(baseTime.year, baseTime.month, baseTime.day);
+    for (var dayOffset = 0; dayOffset < 3; dayOffset++) {
+      final day = referenceDay.add(Duration(days: dayOffset));
+      for (var hour = 0; hour < 24; hour += 3) {
+        final key = dayOffset == 0
+            ? 'h${hour.toString().padLeft(2, '0')}'
+            : 'd${dayOffset}h${hour.toString().padLeft(2, '0')}';
+        final value = item[key];
+        if (value == null) continue;
+        final parsed = int.tryParse('$value');
+        if (parsed != null) result[day.add(Duration(hours: hour))] = parsed;
+      }
+    }
+    return result;
+  }
+
+  /// [forecast]에서 [time]과 가장 가까운 시각의 자외선지수를 찾는다.
+  int? pickForTime(Map<DateTime, int> forecast, DateTime time) {
+    if (forecast.isEmpty) return null;
+    final closest = forecast.keys.reduce(
+      (a, b) => (a.difference(time)).abs() < (b.difference(time)).abs() ? a : b,
+    );
+    return forecast[closest];
   }
 
   String _formatBaseTime(DateTime time) {

@@ -1,5 +1,8 @@
 package com.letsgo2.todayguide
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.webkit.CookieManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -7,6 +10,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val cookieChannelName = "today_guide/cookies"
+    private val launcherChannelName = "today_guide/launcher"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -20,6 +24,29 @@ class MainActivity : FlutterActivity() {
                     result.error("INVALID_ARGUMENT", "url is required", null)
                 } else {
                     result.success(CookieManager.getInstance().getCookie(url))
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        // 상세 이동경로 등 외부 앱(지도 등)으로 URL을 여는 채널.
+        // url_launcher 패키지는 이 플랫폼의 compileSdk 요구 버전이 이 프로젝트보다
+        // 높아서 빌드가 깨지므로, 표준 ACTION_VIEW 인텐트를 직접 호출한다.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, launcherChannelName).setMethodCallHandler { call, result ->
+            if (call.method == "openUrl") {
+                val url = call.argument<String>("url")
+                if (url == null) {
+                    result.error("INVALID_ARGUMENT", "url is required", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    result.success(true)
+                } catch (e: ActivityNotFoundException) {
+                    result.success(false)
                 }
             } else {
                 result.notImplemented()
