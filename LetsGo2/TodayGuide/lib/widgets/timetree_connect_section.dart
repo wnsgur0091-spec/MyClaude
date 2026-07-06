@@ -82,7 +82,7 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     setState(() => _loggedIn = true);
     await _loadCalendars();
     if (_selectedCalendarId != null) {
-      await _loadLabels(_selectedCalendarId!, keepExistingRoles: true);
+      await _loadLabels(_selectedCalendarId!);
     }
   }
 
@@ -154,18 +154,22 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
     }
   }
 
-  Future<void> _loadLabels(String calendarId, {bool keepExistingRoles = false}) async {
+  Future<void> _loadLabels(String calendarId) async {
     setState(() => _loading = true);
     try {
       final labels = await _accountService.fetchLabels(calendarId);
       if (!mounted) return;
       setState(() {
         _labels = labels;
-        if (!keepExistingRoles) {
-          _labelRoles = {
-            for (final label in labels.values)
-              label.id: _autoRoleByLabelName[label.name] ?? EventAttendeeRole.unknown,
-          };
+        // 이미 사용자가 직접 지정한 역할은 그대로 두고, 아직 지정 안 된
+        // (또는 "미지정") 라벨만 이름 매칭으로 자동 채운다. 그래야 기존에
+        // 연동해둔 계정도(라벨을 다시 불러올 때마다) 자동 매핑을 놓치지 않는다.
+        for (final label in labels.values) {
+          final current = _labelRoles[label.id];
+          if (current == null || current == EventAttendeeRole.unknown) {
+            final auto = _autoRoleByLabelName[label.name];
+            if (auto != null) _labelRoles[label.id] = auto;
+          }
         }
       });
       _emitChange();

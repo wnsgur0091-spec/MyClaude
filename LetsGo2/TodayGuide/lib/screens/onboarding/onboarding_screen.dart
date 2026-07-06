@@ -290,12 +290,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       final result = await _locationService.geocodeAddress(controller.text.trim());
                       if (result != null) onResolved(result.lat, result.lng);
                       if (mounted) setState(() => _resolvingAddress = false);
-                      if (mounted && result == null) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(content: Text('주소를 찾지 못했어요. 다시 확인해주세요.')));
-                      }
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(result == null ? '주소를 찾지 못했어요. 다시 확인해주세요.' : '주소를 확인했어요.'),
+                      ));
                     },
-              icon: const Icon(Icons.search, color: AppColors.neonCyan),
+              icon: _resolvingAddress
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonCyan))
+                  : const Icon(Icons.search, color: AppColors.neonCyan),
               tooltip: '주소 확인',
             ),
           ],
