@@ -48,8 +48,17 @@ class GuideEngine {
     final now = DateTime.now();
     final notices = <String>[];
 
-    final fetched = await calendarService.fetchTodayAndNext(now);
-    final events = fetched.todayEvents;
+    // TimeTree 조회(네트워크)와 GPS 위치 확인은 서로 의존하지 않으므로
+    // 순차 대기 대신 동시에 시작해서 전체 대기 시간을 줄인다.
+    final fetchedFuture = calendarService.fetchTodayAndNext(now);
+    final locationFuture = locationService.resolveCurrentLocation(settings);
+    final fetched = await fetchedFuture;
+    final currentLocation = await locationFuture;
+
+    final hadEventsToday = fetched.todayEvents.isNotEmpty;
+    // 앱을 연 시점 기준으로 이미 끝난 일정은 이동경로를 계산할 이유가 없고
+    // 화면에도 보여줄 필요가 없으므로 여기서 걸러낸다.
+    final events = fetched.todayEvents.where((e) => e.end.isAfter(now)).toList();
     final nextEvent = fetched.nextUpcomingEvent;
     final nextEventAlreadyToday = nextEvent != null && events.any((e) => e.id == nextEvent.id);
 
@@ -58,13 +67,15 @@ class GuideEngine {
       if (nextEvent != null && !nextEventAlreadyToday) nextEvent,
     ]);
 
-    final currentLocation = await locationService.resolveCurrentLocation(settings);
     if (currentLocation.isFallback) {
       notices.add('현재 위치를 가져오지 못해 ${currentLocation.label}를 기준으로 계산했어요.');
     }
 
-    final rawForecast = await _safeForecast(currentLocation.lat, currentLocation.lng, notices);
-    final forecast = await _attachUv(rawForecast, currentLocation.lat, currentLocation.lng, notices);
+    // 날씨 예보와 자외선지수용 도시명 조회도 서로 독립적이라 동시에 시작한다.
+    final rawForecastFuture = _safeForecast(currentLocation.lat, currentLocation.lng, notices);
+    final cityNameFuture = _safeCall(() => locationService.resolveCityName(currentLocation.lat, currentLocation.lng));
+    final rawForecast = await rawForecastFuture;
+    final forecast = await _attachUv(rawForecast, await cityNameFuture, notices);
 
     var originLat = currentLocation.lat;
     var originLng = currentLocation.lng;
@@ -87,7 +98,9 @@ class GuideEngine {
     }
 
     if (events.isEmpty) {
-      notices.add('오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.');
+      notices.add(hadEventsToday
+          ? '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.'
+          : '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.');
     }
 
     if (nextEvent != null && !nextEventAlreadyToday) {
@@ -137,13 +150,11 @@ class GuideEngine {
   /// 다른 추천은 그대로 동작하게 하고 안내 문구만 남긴다.
   Future<List<WeatherSnapshot>> _attachUv(
     List<WeatherSnapshot> forecast,
-    double lat,
-    double lng,
+    String? cityName,
     List<String> notices,
   ) async {
     if (forecast.isEmpty) return forecast;
 
-    final cityName = await _safeCall(() => locationService.resolveCityName(lat, lng));
     Map<DateTime, int> uvForecast = const {};
     if (cityName != null) {
       uvForecast = await _safeCall(() => uvService.fetchUvForecast(cityName: cityName, baseTime: DateTime.now())) ??
@@ -235,7 +246,8 @@ class GuideEngine {
 
     if (destination != null) {
       final dest = destination;
-      final carMinutes = await _safeCall(
+      // 자차/대중교통 소요시간은 서로 독립적인 조회라 동시에 시작한다.
+      final carMinutesFuture = _safeCall(
         () => drivingRouteService.estimateDurationMinutes(
           startLat: originLat,
           startLng: originLng,
@@ -244,6 +256,18 @@ class GuideEngine {
         ),
         onFailure: () => notices.add('"${event.title}" 자동차 이동 시간을 일시적인 문제로 가져오지 못했어요.'),
       );
+      final transitMinutesFuture = _safeCall(
+        () => transitRouteService.estimateDurationMinutes(
+          startLat: originLat,
+          startLng: originLng,
+          goalLat: dest.lat,
+          goalLng: dest.lng,
+        ),
+        onFailure: () => notices.add('"${event.title}" 대중교통 이동 시간을 일시적인 문제로 가져오지 못했어요.'),
+      );
+      final carMinutes = await carMinutesFuture;
+      final transitMinutes = await transitMinutesFuture;
+
       if (carMinutes != null) {
         carPlan = RoutePlan.forArrival(
           mode: TransportMode.car,
@@ -255,16 +279,6 @@ class GuideEngine {
           destinationLng: dest.lng,
         );
       }
-
-      final transitMinutes = await _safeCall(
-        () => transitRouteService.estimateDurationMinutes(
-          startLat: originLat,
-          startLng: originLng,
-          goalLat: dest.lat,
-          goalLng: dest.lng,
-        ),
-        onFailure: () => notices.add('"${event.title}" 대중교통 이동 시간을 일시적인 문제로 가져오지 못했어요.'),
-      );
       if (transitMinutes != null) {
         transitPlan = RoutePlan.forArrival(
           mode: TransportMode.transit,

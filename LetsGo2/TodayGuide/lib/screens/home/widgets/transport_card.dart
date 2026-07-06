@@ -5,11 +5,14 @@ import '../../../services/external_link_launcher.dart';
 import '../../../theme/app_theme.dart';
 
 /// 자차/대중교통 이동 계획 하나를 보여주는 작은 칩.
-/// 탭하면 출발/도착 좌표로 외부 지도 앱(구글 지도)에서 상세 경로를 보여준다.
+/// 탭하면 출발/도착 좌표로 네이버 지도 앱에서 상세 경로를 보여준다.
 class TransportChip extends StatelessWidget {
-  const TransportChip({super.key, required this.plan});
+  const TransportChip({super.key, required this.plan, this.destinationName});
 
   final RoutePlan plan;
+
+  /// 네이버 지도에 도착지 이름으로 보여줄 값(보통 일정 제목).
+  final String? destinationName;
 
   @override
   Widget build(BuildContext context) {
@@ -40,16 +43,28 @@ class TransportChip extends StatelessWidget {
     );
   }
 
+  /// 네이버 지도 앱의 길찾기 URL Scheme(nmap://route/car, nmap://route/public).
+  /// 네이버 지도 앱이 설치되어 있어야 열리고, 없으면 실패 안내를 보여준다.
   Future<void> _openDetailedRoute(BuildContext context) async {
-    final travelMode = plan.mode == TransportMode.car ? 'driving' : 'transit';
-    final url = 'https://www.google.com/maps/dir/?api=1'
-        '&origin=${plan.originLat},${plan.originLng}'
-        '&destination=${plan.destinationLat},${plan.destinationLng}'
-        '&travelmode=$travelMode';
-    final opened = await ExternalLinkLauncher.openUrl(url);
+    final routeType = plan.mode == TransportMode.car ? 'car' : 'public';
+    final uri = Uri(
+      scheme: 'nmap',
+      host: 'route',
+      path: routeType,
+      queryParameters: {
+        'slat': '${plan.originLat}',
+        'slng': '${plan.originLng}',
+        'sname': '출발지',
+        'dlat': '${plan.destinationLat}',
+        'dlng': '${plan.destinationLng}',
+        'dname': destinationName ?? '도착지',
+        'appname': 'com.letsgo2.todayguide',
+      },
+    );
+    final opened = await ExternalLinkLauncher.openUrl(uri.toString());
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('지도 앱을 열지 못했어요.')),
+        const SnackBar(content: Text('네이버 지도 앱이 없어서 상세 경로를 열지 못했어요.')),
       );
     }
   }

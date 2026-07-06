@@ -72,8 +72,8 @@ class ScheduleTimelineCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (guide.carPlan != null) TransportChip(plan: guide.carPlan!),
-                if (guide.transitPlan != null) TransportChip(plan: guide.transitPlan!),
+                if (guide.carPlan != null) TransportChip(plan: guide.carPlan!, destinationName: event.title),
+                if (guide.transitPlan != null) TransportChip(plan: guide.transitPlan!, destinationName: event.title),
               ],
             ),
           ],
@@ -94,9 +94,12 @@ class ScheduleTimelineCard extends StatelessWidget {
     );
   }
 
+  static const _weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
   String _formatRange(DateTime start, DateTime end) {
     String fmt(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-    return '${fmt(start)} - ${fmt(end)}';
+    final weekday = _weekdayLabels[start.weekday - 1];
+    return '${start.month}월 ${start.day}일($weekday) ${fmt(start)} - ${fmt(end)}';
   }
 }
 
