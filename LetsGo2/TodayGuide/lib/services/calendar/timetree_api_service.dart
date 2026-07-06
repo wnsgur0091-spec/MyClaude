@@ -52,17 +52,24 @@ class TimeTreeApiService implements CalendarService {
   }
 
   @override
-  Future<List<ScheduleEvent>> fetchEventsForDate(DateTime date) async {
+  Future<CalendarFetchResult> fetchTodayAndNext(DateTime now) async {
     final raw = await _fetchRawEvents();
-    final dayStart = DateTime(date.year, date.month, date.day);
+    final all = raw.map(_toScheduleEvent).toList()..sort((a, b) => a.start.compareTo(b.start));
+
+    final dayStart = DateTime(now.year, now.month, now.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
+    final todayEvents = all.where((e) => e.start.isBefore(dayEnd) && e.end.isAfter(dayStart)).toList();
 
-    final events = raw.map(_toScheduleEvent).where((e) {
-      return e.start.isBefore(dayEnd) && e.end.isAfter(dayStart);
-    }).toList();
+    ScheduleEvent? nextUpcoming;
+    for (final e in all) {
+      if (e.start.isAfter(now) &&
+          (e.attendeeRole == EventAttendeeRole.me || e.attendeeRole == EventAttendeeRole.both)) {
+        nextUpcoming = e;
+        break;
+      }
+    }
 
-    events.sort((a, b) => a.start.compareTo(b.start));
-    return events;
+    return CalendarFetchResult(todayEvents: todayEvents, nextUpcomingEvent: nextUpcoming);
   }
 
   ScheduleEvent _toScheduleEvent(Map<String, dynamic> raw) {
