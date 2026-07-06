@@ -38,8 +38,9 @@ class TimeTreeConnectSectionState extends State<TimeTreeConnectSection> {
   /// TimeTree 라벨 이름이 이 값과 일치하면 역할을 자동으로 지정한다
   /// (본인 기기 기준. 배우자 기기에서는 EventAttendeeRole.perspectiveFor가 뒤집는다).
   static const _autoRoleByLabelName = {
-    '빵오니': EventAttendeeRole.me,
-    '누오니': EventAttendeeRole.partner,
+    '딥 스카이블루': EventAttendeeRole.me,
+    '에메랄드 그린': EventAttendeeRole.partner,
+    '프렌치 로즈': EventAttendeeRole.both,
   };
 
   final _accountService = TimeTreeAccountService();

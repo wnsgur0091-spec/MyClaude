@@ -86,9 +86,15 @@ class GuideEngine {
           missingLocation = true;
           notices.add('"${event.title}" 일정에 장소가 없어요. 카드에서 장소를 입력해주세요.');
         } else {
-          destination = await _safeCall(() => locationService.geocodeAddress(resolved));
+          var geocodeFailed = false;
+          destination = await _safeCall(
+            () => locationService.geocodeAddress(resolved),
+            onFailure: () => geocodeFailed = true,
+          );
           if (destination == null) {
-            notices.add('"${event.title}" 장소($resolved)의 위치를 찾지 못했어요.');
+            notices.add(geocodeFailed
+                ? '"${event.title}" 장소 정보를 일시적인 문제로 가져오지 못했어요.'
+                : '"${event.title}" 장소($resolved)의 위치를 찾지 못했어요.');
           }
         }
       }
@@ -101,6 +107,7 @@ class GuideEngine {
             goalLat: dest.lat,
             goalLng: dest.lng,
           ),
+          onFailure: () => notices.add('"${event.title}" 자동차 이동 시간을 일시적인 문제로 가져오지 못했어요.'),
         );
         if (carMinutes != null) {
           carPlan = RoutePlan.forArrival(
@@ -117,6 +124,7 @@ class GuideEngine {
             goalLat: dest.lat,
             goalLng: dest.lng,
           ),
+          onFailure: () => notices.add('"${event.title}" 대중교통 이동 시간을 일시적인 문제로 가져오지 못했어요.'),
         );
         if (transitMinutes != null) {
           transitPlan = RoutePlan.forArrival(
@@ -166,7 +174,7 @@ class GuideEngine {
     try {
       return await weatherService.fetchTodayForecast(lat: lat, lng: lng);
     } catch (_) {
-      notices.add('날씨 정보를 가져오지 못해 옷차림 추천이 부정확할 수 있어요.');
+      notices.add('일시적인 문제로 날씨 정보를 가져오지 못해 옷차림 추천이 부정확할 수 있어요.');
       return const [];
     }
   }
@@ -179,10 +187,14 @@ class GuideEngine {
     return (override == null || override.trim().isEmpty) ? null : override.trim();
   }
 
-  Future<T?> _safeCall<T>(Future<T?> Function() call) async {
+  /// 외부 API 호출 하나를 감싸서, 실패해도 나머지 계산(다른 이동수단/일정)이
+  /// 계속 진행되도록 한다. [onFailure]는 실제로 예외가 발생했을 때만
+  /// 호출된다(예: "경로를 찾지 못함" 같은 정상적인 null 응답과는 구분).
+  Future<T?> _safeCall<T>(Future<T?> Function() call, {void Function()? onFailure}) async {
     try {
       return await call();
     } catch (_) {
+      onFailure?.call();
       return null;
     }
   }
