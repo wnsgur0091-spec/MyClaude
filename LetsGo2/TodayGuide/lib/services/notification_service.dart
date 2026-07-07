@@ -4,6 +4,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/event_attendee_role.dart';
 import '../models/schedule_event.dart';
+import 'diagnostic_log.dart';
 
 /// 일정마다 시작 3시간 전에 출발 준비 알림을 보낸다. 이게 유일한 알림
 /// 체계다(고정 시각 알람은 없음).
@@ -77,6 +78,7 @@ class NotificationService {
         .where((e) => e.attendeeRole == EventAttendeeRole.me || e.attendeeRole == EventAttendeeRole.both)
         .toList();
 
+    var scheduledCount = 0;
     for (var i = 0; i < relevant.length && i < _eventReminderSlotCount; i++) {
       final event = relevant[i];
       final fireAt = tz.TZDateTime.from(event.start.subtract(_reminderLeadTime), tz.local);
@@ -101,10 +103,15 @@ class NotificationService {
           uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
           payload: tapPayload,
         );
-      } catch (_) {
+        scheduledCount++;
+        await DiagnosticLog.log('알림 예약: "${event.title}" -> $fireAt');
+      } catch (e) {
         // 일정 하나의 알림 예약이 실패해도(예: 비정상적인 시각) 나머지
         // 일정의 알림과 오늘의 지침서 전체 계산은 계속 진행되어야 한다.
+        // 다만 조용히 무시하면 나중에 왜 알림이 안 왔는지 추적할 수 없으므로 기록은 남긴다.
+        await DiagnosticLog.log('알림 예약 실패: "${event.title}" ($fireAt) - $e');
       }
     }
+    await DiagnosticLog.log('알림 재예약 완료: 대상 ${relevant.length}건 중 $scheduledCount건 예약됨');
   }
 }

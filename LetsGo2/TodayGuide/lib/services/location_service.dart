@@ -31,10 +31,14 @@ class LocationService {
     try {
       final hasPermission = await _ensurePermission();
       if (hasPermission) {
+        // 이동경로 추천은 도로/건물 단위 정확도면 충분해서, GPS 정확도를
+        // high가 아니라 medium으로 낮춰 위치 확보 속도를 높인다. 타임아웃도
+        // 10초에서 7초로 줄여 전체 지침서 계산이 GPS 대기로 오래 걸리는
+        // 상황을 줄인다(그래도 못 잡으면 기본 출발지로 폴백).
         final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 7),
           ),
         );
         return ResolvedLocation(

@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import '../models/route_plan.dart';
 import '../models/schedule_event.dart';
 import '../models/today_guide_result.dart';
 import '../models/user_settings.dart';
 import '../models/weather_snapshot.dart';
 import 'calendar/calendar_service.dart';
+import 'diagnostic_log.dart';
 import 'event_location_override_repository.dart';
 import 'location_service.dart';
 import 'outfit_rules.dart';
@@ -41,19 +44,48 @@ class GuideEngine {
   /// 일정별 사전 알림(3시간 전) 재예약 등에 쓴다.
   final Future<void> Function(List<ScheduleEvent> events)? onEventsFetched;
 
+  /// 오늘의 지침서를 계산한다. logcat은 몇 시간만 지나도 버퍼가 순환돼서
+  /// 간헐적으로 발생하는 오류를 나중에 확인할 방법이 없기 때문에, 시작/종료/
+  /// 실패를 항상 DiagnosticLog에 남긴다(설정 화면에서 확인 가능).
   Future<TodayGuideResult> buildTodayGuide({
+    required UserSettings settings,
+    required CalendarService calendarService,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    unawaited(DiagnosticLog.log('buildTodayGuide 시작'));
+    try {
+      final result = await _buildTodayGuideInner(settings: settings, calendarService: calendarService);
+      unawaited(DiagnosticLog.log(
+          'buildTodayGuide 완료 (${stopwatch.elapsedMilliseconds}ms, 일정 ${result.eventGuides.length}건, 안내 ${result.notices.length}건)'));
+      return result;
+    } catch (e, stack) {
+      unawaited(DiagnosticLog.log(
+          'buildTodayGuide 실패 (${stopwatch.elapsedMilliseconds}ms): $e\n${_truncateStack(stack)}'));
+      rethrow;
+    }
+  }
+
+  String _truncateStack(StackTrace stack) {
+    final lines = '$stack'.split('\n');
+    return lines.take(6).join('\n');
+  }
+
+  Future<TodayGuideResult> _buildTodayGuideInner({
     required UserSettings settings,
     required CalendarService calendarService,
   }) async {
     final now = DateTime.now();
     final notices = <String>[];
+    final stageWatch = Stopwatch()..start();
 
     // TimeTree 조회(네트워크)와 GPS 위치 확인은 서로 의존하지 않으므로
     // 순차 대기 대신 동시에 시작해서 전체 대기 시간을 줄인다.
     final fetchedFuture = calendarService.fetchTodayAndNext(now);
     final locationFuture = locationService.resolveCurrentLocation(settings);
     final fetched = await fetchedFuture;
+    unawaited(DiagnosticLog.log('  TimeTree 조회 완료 (${stageWatch.elapsedMilliseconds}ms)'));
     final currentLocation = await locationFuture;
+    unawaited(DiagnosticLog.log('  위치 확인 완료 (${stageWatch.elapsedMilliseconds}ms, fallback=${currentLocation.isFallback})'));
 
     final hadEventsToday = fetched.todayEvents.isNotEmpty;
     // 앱을 연 시점 기준으로 이미 끝난 일정은 이동경로를 계산할 이유가 없고
@@ -76,6 +108,7 @@ class GuideEngine {
     final cityNameFuture = _safeCall(() => locationService.resolveCityName(currentLocation.lat, currentLocation.lng));
     final rawForecast = await rawForecastFuture;
     final forecast = await _attachUv(rawForecast, await cityNameFuture, notices);
+    unawaited(DiagnosticLog.log('  날씨/자외선지수 조회 완료 (${stageWatch.elapsedMilliseconds}ms)'));
 
     var originLat = currentLocation.lat;
     var originLng = currentLocation.lng;
@@ -117,6 +150,9 @@ class GuideEngine {
     if (nextEvent != null) {
       notices.add(_alarmNotice(nextEvent, now));
     }
+
+    unawaited(DiagnosticLog.log(
+        '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${nextEvent != null && !nextEventAlreadyToday ? 1 : 0}건)'));
 
     final outfit = OutfitRules.recommend(
       daySnapshots: daySnapshots,

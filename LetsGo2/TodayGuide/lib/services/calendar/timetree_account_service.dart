@@ -1,3 +1,4 @@
+import '../diagnostic_log.dart';
 import 'timetree_client.dart';
 import 'timetree_credential_store.dart';
 
@@ -20,9 +21,15 @@ class TimeTreeAccountService {
 
   /// 이메일/비밀번호로 로그인 검증 후 자격증명과 세션을 저장한다.
   Future<void> login({required String email, required String password}) async {
-    final sessionId = await _client.login(email: email, password: password);
-    await _credentialStore.saveCredentials(email: email, password: password);
-    await _credentialStore.saveSession(sessionId);
+    try {
+      final sessionId = await _client.login(email: email, password: password);
+      await _credentialStore.saveCredentials(email: email, password: password);
+      await _credentialStore.saveSession(sessionId);
+      await DiagnosticLog.log('TimeTree 로그인 성공 ($email)');
+    } catch (e) {
+      await DiagnosticLog.log('TimeTree 로그인 실패 ($email): $e');
+      rethrow;
+    }
   }
 
   /// 앱 내 웹뷰로 TimeTree 로그인 페이지에서 직접 로그인해서 얻은 세션 쿠키를

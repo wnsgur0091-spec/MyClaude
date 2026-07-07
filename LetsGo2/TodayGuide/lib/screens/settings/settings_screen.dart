@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../models/event_attendee_role.dart';
 import '../../models/user_settings.dart';
+import '../../services/battery_optimization_service.dart';
 import '../../services/location_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/starfield_background.dart';
 import '../../widgets/timetree_connect_section.dart';
+import 'diagnostic_log_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.settings, required this.onSave});
@@ -35,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<int, EventAttendeeRole> _timeTreeLabelRoles = {};
   bool _isSpouseDevice = false;
   bool _resolvingAddress = false;
+  bool _ignoringBatteryOptimizations = false;
 
   @override
   void initState() {
@@ -52,6 +55,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _timeTreeCalendarName = s.timeTreeCalendarName;
     _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
     _isSpouseDevice = s.isSpouseDevice ?? false;
+    _loadBatteryOptimizationState();
+  }
+
+  Future<void> _loadBatteryOptimizationState() async {
+    final ignoring = await BatteryOptimizationService.isIgnoringBatteryOptimizations();
+    if (mounted) setState(() => _ignoringBatteryOptimizations = ignoring);
   }
 
   @override
@@ -104,6 +113,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 24),
                     _sectionTitle('기기 구분'),
                     _spouseDeviceTile(),
+                    const SizedBox(height: 24),
+                    _sectionTitle('알림 안정성'),
+                    _batteryOptimizationTile(),
+                    const SizedBox(height: 24),
+                    _sectionTitle('문제 해결'),
+                    _diagnosticLogTile(),
                   ],
                 ),
               ),
@@ -219,6 +234,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
         '기종으로 자동 추정되지만, 틀렸거나 기기를 바꿨다면 여기서 직접 바꿔주세요. '
         '켜면 TimeTree 라벨의 본인/배우자 역할이 서로 바뀌어 해석돼요.',
         style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+      ),
+    );
+  }
+
+  Widget _batteryOptimizationTile() {
+    if (_ignoringBatteryOptimizations) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.check_circle, color: AppColors.neonCyan),
+        title: Text('배터리 최적화 제외됨', style: TextStyle(color: AppColors.textPrimary)),
+        subtitle: Text(
+          '알림이 정확한 시각에 뜨도록 잘 설정돼 있어요.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+        ),
+      );
+    }
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.battery_alert, color: AppColors.warning),
+      title: const Text('배터리 최적화 제외 요청', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        '기기가 절전 모드에서 앱을 강하게 제한하면, 예약된 알림 시각이 되어도 '
+        '실제 알림이 뜨지 않을 수 있어요. 눌러서 예외로 등록해주세요.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+      ),
+      trailing: OutlinedButton(
+        onPressed: () async {
+          await BatteryOptimizationService.requestIgnoreBatteryOptimizations();
+          if (mounted) _loadBatteryOptimizationState();
+        },
+        child: const Text('요청'),
+      ),
+    );
+  }
+
+  Widget _diagnosticLogTile() {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.bug_report_outlined, color: AppColors.textSecondary),
+      title: const Text('진단 로그 보기', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        '지침서 계산/알림 예약 기록이에요. 문제가 생기면 복사해서 알려주세요.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const DiagnosticLogScreen()),
       ),
     );
   }
