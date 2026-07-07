@@ -151,9 +151,7 @@ class GuideEngine {
       eventGuides.add(built.eventGuide);
     }
 
-    if (nextEvent != null) {
-      notices.add(_alarmNotice(nextEvent, now));
-    }
+    final alarmNotice = nextEvent == null ? null : _alarmNotice(nextEvent, now);
 
     unawaited(DiagnosticLog.log(
         '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${nextEvent != null && !nextEventAlreadyToday ? 1 : 0}건)'));
@@ -181,6 +179,7 @@ class GuideEngine {
       outfit: outfit,
       outfitEvent: nextEvent,
       outfitHourlyWeather: outfitHourly,
+      alarmNotice: alarmNotice,
       notices: notices,
     );
   }

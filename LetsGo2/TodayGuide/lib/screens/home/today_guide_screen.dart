@@ -290,12 +290,9 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         _buildHeader(result),
-        if (result.notices.isNotEmpty) ...[
+        if (result.alarmNotice != null) ...[
           const SizedBox(height: 16),
-          ...result.notices.map((n) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _NoticeStrip(text: n),
-              )),
+          _AlarmBanner(text: result.alarmNotice!),
         ],
         const SizedBox(height: 20),
         OutfitCard(
@@ -319,6 +316,13 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                   onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
                 ),
               )),
+        if (result.notices.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          ...result.notices.map((n) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _NoticeStrip(text: n),
+              )),
+        ],
         if (widget.onResetApp != null) ...[
           const SizedBox(height: 32),
           Center(
@@ -386,6 +390,43 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '${dt.month}월 ${dt.day}일 · $h:$m 기준';
+  }
+}
+
+/// 다음 일정 알림이 언제 울리는지 알려주는 배너. 다른 안내 문구보다
+/// 눈에 띄어야 해서 네온 톤 그라디언트와 종 아이콘으로 강조한다.
+class _AlarmBanner extends StatelessWidget {
+  const _AlarmBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.neonCyan.withOpacity(0.22), AppColors.neonPurple.withOpacity(0.22)],
+        ),
+        border: Border.all(color: AppColors.neonCyan.withOpacity(0.7), width: 1.4),
+        boxShadow: [
+          BoxShadow(color: AppColors.neonCyan.withOpacity(0.25), blurRadius: 16, spreadRadius: 1),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active, size: 20, color: AppColors.neonCyan),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

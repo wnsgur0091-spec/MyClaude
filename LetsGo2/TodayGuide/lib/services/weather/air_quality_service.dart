@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../config/app_config.dart';
+import '../diagnostic_log.dart';
 
 /// 등급: 1=좋음, 2=보통, 3=나쁨, 4=매우나쁨. 조회 실패/값 없음이면 null.
 class AirQualityGrade {
@@ -21,7 +22,7 @@ class AirQualityService {
 
   final http.Client _client;
 
-  static const _endpoint = 'http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty';
+  static const _endpoint = 'https://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty';
 
   /// [sidoName]은 "서울", "인천", "부산" 같은 시도명(LocationService.resolveCityName과 동일한 값).
   /// 여러 측정소 중 값이 있는 첫 번째 결과를 대표값으로 쓴다.
@@ -38,10 +39,19 @@ class AirQualityService {
     });
 
     final response = await _client.get(uri);
-    if (response.statusCode != 200) return const AirQualityGrade();
+    if (response.statusCode != 200) {
+      await DiagnosticLog.log('미세먼지 조회 실패: HTTP ${response.statusCode} - ${_truncate(response.body)}');
+      return const AirQualityGrade();
+    }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final resultCode = body['response']?['header']?['resultCode'];
     final items = (body['response']?['body']?['items'] as List<dynamic>?) ?? const [];
+
+    if (items.isEmpty) {
+      await DiagnosticLog.log(
+          '미세먼지 조회 결과 없음: sido=$sidoName resultCode=$resultCode (활용신청 승인 직후라 데이터 반영이 지연됐을 수 있음)');
+    }
 
     for (final raw in items) {
       final item = raw as Map<String, dynamic>;
@@ -53,4 +63,6 @@ class AirQualityService {
     }
     return const AirQualityGrade();
   }
+
+  String _truncate(String s) => s.length > 200 ? s.substring(0, 200) : s;
 }

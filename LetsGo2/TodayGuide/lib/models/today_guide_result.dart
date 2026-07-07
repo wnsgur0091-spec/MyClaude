@@ -36,7 +36,12 @@ class TodayGuideResult {
   /// [outfitEvent] 구간을 1시간 간격으로 보간한 날씨. outfitEvent가 없으면 비어 있다.
   final List<WeatherSnapshot> outfitHourlyWeather;
 
-  /// 오늘 일정이 없을 때 등, 계산이 부분적으로 실패했을 때 표시할 안내 문구.
+  /// 다음 일정의 3시간 전 알림이 언제 울리는지 안내하는 문구. 화면 상단에
+  /// 강조해서 보여준다(다른 안내 문구와는 성격이 달라 구분해서 관리).
+  final String? alarmNotice;
+
+  /// 오늘 일정이 없을 때, 외부 API 조회에 실패했을 때 등 계산이 부분적으로
+  /// 실패했을 때 표시할 안내 문구. 화면 하단에 보여준다.
   final List<String> notices;
 
   const TodayGuideResult({
@@ -45,6 +50,7 @@ class TodayGuideResult {
     required this.outfit,
     this.outfitEvent,
     this.outfitHourlyWeather = const [],
+    this.alarmNotice,
     this.notices = const [],
   });
 }
