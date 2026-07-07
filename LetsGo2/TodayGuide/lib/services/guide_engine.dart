@@ -241,6 +241,7 @@ class GuideEngine {
       now: now,
       weatherWarnings: weatherWarnings,
       outfit: outfit,
+      hasEventsToday: events.isNotEmpty,
       nextEvent: nextEvent,
       hasNearbyEvents: nearbyEvents.isNotEmpty,
     );
@@ -270,6 +271,7 @@ class GuideEngine {
     required DateTime now,
     required List<String> weatherWarnings,
     required OutfitRecommendation outfit,
+    required bool hasEventsToday,
     required ScheduleEvent? nextEvent,
     required bool hasNearbyEvents,
   }) {
@@ -279,11 +281,15 @@ class GuideEngine {
       buffer.write(' 지금 ${weatherWarnings.first}가 발효 중이니 외출 시 조심하세요.');
     }
 
-    buffer.write(' ${outfit.reason}');
-    if (outfit.items.isNotEmpty) {
-      buffer.write(' ${outfit.items.join(', ')} 챙기시고,');
+    // 오늘 일정이 없으면 옷차림을 안내할 이유가 없다("오늘의 옷차림" 카드도
+    // 이때는 화면에 아예 안 보여준다 — 그 화면 상태와 맞춘다).
+    if (hasEventsToday) {
+      buffer.write(' ${outfit.reason}');
+      if (outfit.items.isNotEmpty) {
+        buffer.write(' ${outfit.items.join(', ')} 챙기시고,');
+      }
+      buffer.write(' ${outfit.top} · ${outfit.bottom} · ${outfit.shoes} 조합 추천드려요.');
     }
-    buffer.write(' ${outfit.top} · ${outfit.bottom} · ${outfit.shoes} 조합 추천드려요.');
 
     if (nextEvent != null) {
       buffer.write(' 다음 일정은 "${nextEvent.title}"이고, ${_formatMoment(nextEvent.start)}에 시작해요.');
