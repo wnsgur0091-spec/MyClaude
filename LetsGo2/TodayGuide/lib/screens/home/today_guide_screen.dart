@@ -291,6 +291,8 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         _buildHeader(result),
+        const SizedBox(height: 16),
+        _BriefingCard(text: result.briefing),
         if (result.weatherWarnings.isNotEmpty) ...[
           const SizedBox(height: 16),
           ...result.weatherWarnings.map((w) => Padding(
@@ -409,6 +411,43 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '${dt.month}월 ${dt.day}일 · $h:$m 기준';
+  }
+}
+
+/// 오늘의 지침서 계산 결과를 한 문단으로 요약해서 보여주는 브리핑 카드.
+/// AI 호출 없이 순수 문자열 템플릿으로 만든 문구를 그대로 보여준다.
+class _BriefingCard extends StatelessWidget {
+  const _BriefingCard({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.neonPurple.withOpacity(0.20), AppColors.neonCyan.withOpacity(0.14)],
+        ),
+        border: Border.all(color: AppColors.neonPurple.withOpacity(0.5), width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.auto_awesome, size: 20, color: AppColors.neonPurple),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: AppColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.5)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

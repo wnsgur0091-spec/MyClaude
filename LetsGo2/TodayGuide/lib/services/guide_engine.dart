@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../models/nearby_event.dart';
+import '../models/outfit_recommendation.dart';
 import '../models/route_plan.dart';
 import '../models/schedule_event.dart';
 import '../models/today_guide_result.dart';
@@ -197,10 +198,19 @@ class GuideEngine {
             .take(maxHourlyRows)
             .toList();
 
+    final briefing = _buildBriefing(
+      now: now,
+      weatherWarnings: weatherWarnings,
+      outfit: outfit,
+      nextEvent: nextEvent,
+      hasNearbyEvents: nearbyEvents.isNotEmpty,
+    );
+
     return TodayGuideResult(
       generatedAt: now,
       eventGuides: eventGuides,
       outfit: outfit,
+      briefing: briefing,
       outfitEvent: nextEvent,
       outfitHourlyWeather: outfitHourly,
       alarmNotice: alarmNotice,
@@ -208,6 +218,48 @@ class GuideEngine {
       nearbyEvents: nearbyEvents,
       notices: notices,
     );
+  }
+
+  /// 날씨/옷차림/다음 일정 계산이 끝난 결과를 자연스러운 한 문단 인사말로
+  /// 요약한다. Claude API 등 LLM 호출 없이 순수 문자열 템플릿으로 조합한다.
+  String _buildBriefing({
+    required DateTime now,
+    required List<String> weatherWarnings,
+    required OutfitRecommendation outfit,
+    required ScheduleEvent? nextEvent,
+    required bool hasNearbyEvents,
+  }) {
+    final buffer = StringBuffer(_greetingFor(now));
+
+    if (weatherWarnings.isNotEmpty) {
+      buffer.write(' 지금 ${weatherWarnings.first}가 발효 중이니 외출 시 조심하세요.');
+    }
+
+    buffer.write(' ${outfit.reason}');
+    if (outfit.items.isNotEmpty) {
+      buffer.write(' ${outfit.items.join(', ')} 챙기시고,');
+    }
+    buffer.write(' ${outfit.top} · ${outfit.bottom} · ${outfit.shoes} 조합 추천드려요.');
+
+    if (nextEvent != null) {
+      buffer.write(' 다음 일정은 "${nextEvent.title}"이고, ${_formatMoment(nextEvent.start)}에 시작해요.');
+    } else if (hasNearbyEvents) {
+      buffer.write(' 오늘 남은 일정은 없지만, 근처에 가볼 만한 축제/행사를 아래에 찾아봤어요.');
+    } else {
+      buffer.write(' 오늘 남은 일정은 없어요. 편안한 하루 보내세요.');
+    }
+
+    return buffer.toString();
+  }
+
+  String _greetingFor(DateTime now) {
+    final h = now.hour;
+    if (h < 6) return '아직 이른 새벽이에요.';
+    if (h < 11) return '좋은 아침이에요!';
+    if (h < 14) return '점심 시간대예요.';
+    if (h < 18) return '오후에도 힘내세요!';
+    if (h < 22) return '저녁 시간이네요.';
+    return '늦은 시간까지 고생 많아요.';
   }
 
   /// 자외선지수/미세먼지를 조회해서 예보 목록에 붙여준다. 둘 다 같은 도시명에

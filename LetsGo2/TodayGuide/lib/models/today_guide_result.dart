@@ -30,6 +30,10 @@ class TodayGuideResult {
   final List<EventGuide> eventGuides;
   final OutfitRecommendation outfit;
 
+  /// 날씨/일정 계산 결과를 한 문단으로 요약한 인사말. AI 호출 없이 순수
+  /// 문자열 템플릿으로 만든다(오늘의 지침서 화면 맨 위에 강조해서 보여준다).
+  final String briefing;
+
   /// 옷차림 추천이 기준으로 삼은 일정(가장 가까운 다음 일정). 없으면 옷차림은
   /// 오늘 등록된 일정 전체 날씨를 기준으로 계산된 것이다.
   final ScheduleEvent? outfitEvent;
@@ -56,6 +60,7 @@ class TodayGuideResult {
     required this.generatedAt,
     required this.eventGuides,
     required this.outfit,
+    required this.briefing,
     this.outfitEvent,
     this.outfitHourlyWeather = const [],
     this.alarmNotice,
