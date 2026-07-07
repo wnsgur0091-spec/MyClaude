@@ -155,9 +155,18 @@ class GuideEngine {
     var nearbyEvents = const <NearbyEvent>[];
     String? todayEmptyNotice;
     if (events.isEmpty) {
-      todayEmptyNotice = hadEventsToday
-          ? '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.'
-          : '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
+      if (hadEventsToday) {
+        // 오늘 일정이 있었지만 다 끝난 상태. 방금 소화한(=가장 늦게 끝난)
+        // 일정 제목을 언급해서 수고했다는 느낌으로 안내한다.
+        final completedToday = fetched.todayEvents.where((e) => !e.end.isAfter(now)).toList()
+          ..sort((a, b) => a.end.compareTo(b.end));
+        final lastEvent = completedToday.isNotEmpty ? completedToday.last : null;
+        todayEmptyNotice = lastEvent != null
+            ? '"${lastEvent.title}" 일정을 소화하느라 고생했어요.'
+            : '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
+      } else {
+        todayEmptyNotice = '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
+      }
 
       // 오늘 남은 일정이 없으면 현재 위치 근처(반경 20km) 축제/행사를
       // 추천해준다. 다만 하루를 시작하는 낮 12시 이전에만 보여준다 — 오후에

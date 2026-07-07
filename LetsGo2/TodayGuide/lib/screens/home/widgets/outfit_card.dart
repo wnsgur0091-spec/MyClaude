@@ -133,6 +133,42 @@ class _HourlyWeatherTile extends StatelessWidget {
 
   final WeatherSnapshot snapshot;
 
+  /// 강수형태/하늘상태에 맞는 날씨 아이콘을 고른다. 강수형태가 있으면
+  /// 하늘상태보다 우선한다(비/눈 예보가 더 실용적인 정보라서).
+  IconData get _icon {
+    switch (snapshot.precipitationType) {
+      case PrecipitationType.rain:
+      case PrecipitationType.shower:
+        return Icons.water_drop;
+      case PrecipitationType.rainSnow:
+        return Icons.grain;
+      case PrecipitationType.snow:
+        return Icons.ac_unit;
+      case PrecipitationType.none:
+        switch (snapshot.skyCondition) {
+          case SkyCondition.clear:
+            return Icons.wb_sunny;
+          case SkyCondition.mostlyCloudy:
+            return Icons.wb_cloudy;
+          case SkyCondition.cloudy:
+            return Icons.cloud;
+        }
+    }
+  }
+
+  Color get _iconColor {
+    switch (snapshot.precipitationType) {
+      case PrecipitationType.rain:
+      case PrecipitationType.shower:
+      case PrecipitationType.rainSnow:
+        return AppColors.neonCyan;
+      case PrecipitationType.snow:
+        return AppColors.textPrimary;
+      case PrecipitationType.none:
+        return snapshot.skyCondition == SkyCondition.clear ? AppColors.warning : AppColors.textSecondary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -152,6 +188,8 @@ class _HourlyWeatherTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text('${snapshot.precipitationProbability}%',
               style: const TextStyle(color: AppColors.neonCyan, fontSize: 11)),
+          const SizedBox(height: 4),
+          Icon(_icon, size: 16, color: _iconColor),
         ],
       ),
     );
