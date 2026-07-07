@@ -1,5 +1,6 @@
 import '../../models/event_attendee_role.dart';
 import '../../models/schedule_event.dart';
+import '../diagnostic_log.dart';
 import 'calendar_service.dart';
 import 'timetree_client.dart';
 import 'timetree_credential_store.dart';
@@ -88,10 +89,27 @@ class TimeTreeApiService implements CalendarService {
       if (nextOwnUpcoming != null) break;
     }
 
+    // nextUpcoming이 속한 날짜의 일정 전체(역할 무관). "다음 일정" 미리보기가
+    // 그날 가장 빠른 일정 하나만 보여주면, 같은 날 뒤에 있는 배우자 단독
+    // 일정이 가려져서 안 보이는 문제가 있었다 — 오늘의 동선과 같은 방식으로
+    // 그날 전체를 노출한다.
+    List<ScheduleEvent> upcomingDayEvents = const [];
+    if (nextUpcoming != null) {
+      final upcomingDayStart = DateTime(nextUpcoming.start.year, nextUpcoming.start.month, nextUpcoming.start.day);
+      final upcomingDayEnd = upcomingDayStart.add(const Duration(days: 1));
+      upcomingDayEvents =
+          all.where((e) => e.start.isBefore(upcomingDayEnd) && e.end.isAfter(upcomingDayStart)).toList();
+    }
+
+    await DiagnosticLog.log(
+        'TimeTree 조회: 전체 ${all.length}건, 오늘 ${todayEvents.length}건, 다음 일정 날짜 일정 ${upcomingDayEvents.length}건'
+        '${upcomingDayEvents.isNotEmpty ? ' (${upcomingDayEvents.map((e) => '"${e.title}"/${e.attendeeRole.label}').join(', ')})' : ''}');
+
     return CalendarFetchResult(
       todayEvents: todayEvents,
       nextUpcomingEvent: nextUpcoming,
       nextOwnUpcomingEvent: nextOwnUpcoming,
+      upcomingDayEvents: upcomingDayEvents,
     );
   }
 

@@ -184,20 +184,31 @@ class GuideEngine {
       }
     }
 
-    // 오늘 일정이 없어서 대신 계산한 "다음 일정"(미래 날짜)은 오늘의
-    // 동선/옷차림에 섞지 않고 별도 D+N 섹션 데이터로 분리해서 들고 있는다.
-    EventGuide? upcomingEventGuide;
+    // 오늘 일정이 없어서 대신 계산한 "다음 일정이 있는 날"(미래 날짜)의 일정
+    // 전체는 오늘의 동선/옷차림에 섞지 않고 별도 D+N 섹션 데이터로 분리한다.
+    // 그날 가장 빠른 일정 하나만 보여주면 같은 날 뒤에 있는 배우자 단독
+    // 일정이 가려지므로, 오늘의 동선처럼 그날 전체를 이어서 계산한다.
+    final upcomingEventGuides = <EventGuide>[];
+    final upcomingDaySnapshots = <WeatherSnapshot>[];
     int? upcomingDayOffset;
-    if (nextEvent != null && !nextEventAlreadyToday) {
-      final built = await _buildEventGuide(
-        event: nextEvent,
-        originLat: currentLocation.lat,
-        originLng: currentLocation.lng,
-        forecast: forecast,
-        notices: notices,
-      );
-      upcomingEventGuide = built.eventGuide;
-      upcomingDayOffset = DateTime(nextEvent.start.year, nextEvent.start.month, nextEvent.start.day)
+    if (fetched.upcomingDayEvents.isNotEmpty && !nextEventAlreadyToday) {
+      var upcomingOriginLat = currentLocation.lat;
+      var upcomingOriginLng = currentLocation.lng;
+      for (final event in fetched.upcomingDayEvents) {
+        final built = await _buildEventGuide(
+          event: event,
+          originLat: upcomingOriginLat,
+          originLng: upcomingOriginLng,
+          forecast: forecast,
+          notices: notices,
+        );
+        upcomingEventGuides.add(built.eventGuide);
+        if (built.eventGuide.weather != null) upcomingDaySnapshots.add(built.eventGuide.weather!);
+        upcomingOriginLat = built.nextOriginLat;
+        upcomingOriginLng = built.nextOriginLng;
+      }
+      final firstUpcoming = fetched.upcomingDayEvents.first;
+      upcomingDayOffset = DateTime(firstUpcoming.start.year, firstUpcoming.start.month, firstUpcoming.start.day)
           .difference(DateTime(now.year, now.month, now.day))
           .inDays;
     }
@@ -209,7 +220,7 @@ class GuideEngine {
     final alarmNotice = nextOwnEvent == null ? null : _alarmNotice(nextOwnEvent, now);
 
     unawaited(DiagnosticLog.log(
-        '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${upcomingEventGuide != null ? 1 : 0}건)'));
+        '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${upcomingEventGuides.length}건)'));
 
     final outfit = OutfitRules.recommend(
       daySnapshots: daySnapshots,
@@ -230,11 +241,13 @@ class GuideEngine {
 
     OutfitRecommendation? upcomingOutfit;
     var upcomingOutfitHourly = const <WeatherSnapshot>[];
-    if (upcomingEventGuide != null) {
-      upcomingOutfitHourly = weatherService.hourlyBreakdown(
-          forecast, upcomingEventGuide.event.start, upcomingEventGuide.event.end,
-          maxHours: maxHourlyRows);
-      upcomingOutfit = OutfitRules.recommend(daySnapshots: upcomingOutfitHourly, gender: settings.gender);
+    if (upcomingEventGuides.isNotEmpty) {
+      final upcomingStart =
+          fetched.upcomingDayEvents.map((e) => e.start).reduce((a, b) => a.isBefore(b) ? a : b);
+      final upcomingEnd = fetched.upcomingDayEvents.map((e) => e.end).reduce((a, b) => a.isAfter(b) ? a : b);
+      upcomingOutfitHourly =
+          weatherService.hourlyBreakdown(forecast, upcomingStart, upcomingEnd, maxHours: maxHourlyRows);
+      upcomingOutfit = OutfitRules.recommend(daySnapshots: upcomingDaySnapshots, gender: settings.gender);
     }
 
     final briefing = _buildBriefing(
@@ -257,7 +270,7 @@ class GuideEngine {
       weatherWarnings: weatherWarnings,
       nearbyEvents: nearbyEvents,
       todayEmptyNotice: todayEmptyNotice,
-      upcomingEventGuide: upcomingEventGuide,
+      upcomingEventGuides: upcomingEventGuides,
       upcomingDayOffset: upcomingDayOffset,
       upcomingOutfit: upcomingOutfit,
       upcomingOutfitHourlyWeather: upcomingOutfitHourly,

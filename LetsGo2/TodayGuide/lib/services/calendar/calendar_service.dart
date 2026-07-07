@@ -6,6 +6,7 @@ class CalendarFetchResult {
     required this.todayEvents,
     required this.nextUpcomingEvent,
     required this.nextOwnUpcomingEvent,
+    required this.upcomingDayEvents,
   });
 
   /// 조회한 날짜(자정~다음날 자정) 동안 진행되는 일정. 역할과 무관하게 전부 포함한다
@@ -22,6 +23,13 @@ class CalendarFetchResult {
   /// 이걸 써야 한다(배우자 단독 일정은 알림이 안 울리므로 [nextUpcomingEvent]를
   /// 쓰면 안 울릴 알림을 울린다고 안내하게 된다). 없으면 null.
   final ScheduleEvent? nextOwnUpcomingEvent;
+
+  /// [nextUpcomingEvent]가 속한 날짜(오늘이 아닌 미래 날짜) 동안 진행되는
+  /// 일정 전체(역할 무관). "다음 일정" 미리보기는 그날 가장 빠른 일정 하나만
+  /// 보여주면 같은 날 뒤에 있는 배우자 단독 일정이 가려지는 문제가 있어서,
+  /// 오늘의 동선과 동일하게 그날 전체를 보여주는 데 쓴다. nextUpcomingEvent가
+  /// 없으면 빈 리스트.
+  final List<ScheduleEvent> upcomingDayEvents;
 }
 
 /// 하루치 일정을 읽어오는 공통 인터페이스.

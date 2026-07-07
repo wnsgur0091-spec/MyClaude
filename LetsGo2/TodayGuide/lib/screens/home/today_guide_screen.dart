@@ -290,7 +290,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   }
 
   Widget _buildResult(TodayGuideResult result) {
-    final hasUpcoming = result.upcomingEventGuide != null;
+    final hasUpcoming = result.upcomingEventGuides.isNotEmpty;
     // 다음 일정이 없는데도 탭 상태가 1(다음 일정)로 남아있으면(예: 새로고침
     // 사이 데이터가 바뀐 경우) 항상 "오늘" 탭으로 되돌린다.
     if (!hasUpcoming) _selectedGuideTab = 0;
@@ -387,16 +387,14 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     ];
   }
 
-  /// "D+N일 후" 탭 내용. 오늘 일정이 없을 때 대신 계산해둔 다음 일정의
-  /// 동선/옷차림을 "오늘"과 완전히 분리된 탭으로 보여준다.
+  /// "D+N일 후" 탭 내용. 오늘 일정이 없을 때 대신 계산해둔 다음 일정 날짜의
+  /// 동선/옷차림 전체(역할 무관)를 "오늘"과 완전히 분리된 탭으로 보여준다.
   List<Widget> _buildUpcomingTabContent(TodayGuideResult result) {
-    final guide = result.upcomingEventGuide!;
     return [
       if (result.upcomingOutfit != null) ...[
         OutfitCard(
           title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
           outfit: result.upcomingOutfit!,
-          referenceEvent: guide.event,
           hourlyWeather: result.upcomingOutfitHourlyWeather,
         ),
         const SizedBox(height: 24),
@@ -405,11 +403,14 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
           style: const TextStyle(
               color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
       const SizedBox(height: 12),
-      ScheduleTimelineCard(
-        guide: guide,
-        now: result.generatedAt,
-        onAddLocation: guide.missingLocation ? () => _addLocationFor(guide.event) : null,
-      ),
+      ...result.upcomingEventGuides.map((g) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ScheduleTimelineCard(
+              guide: g,
+              now: result.generatedAt,
+              onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
+            ),
+          )),
     ];
   }
 

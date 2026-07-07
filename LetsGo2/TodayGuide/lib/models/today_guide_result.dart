@@ -57,17 +57,20 @@ class TodayGuideResult {
   /// 아니라 "오늘의 옷차림"과 "오늘의 동선" 섹션 안에서 문맥에 맞게 보여준다.
   final String? todayEmptyNotice;
 
-  /// 오늘 일정이 없어서 대신 보여주는 다음 일정(미래 날짜)의 이동 지침.
-  /// "오늘의 동선"에는 섞지 않고 별도 "D+N일 후" 섹션으로 보여준다.
-  final EventGuide? upcomingEventGuide;
+  /// 오늘 일정이 없어서 대신 보여주는 다음 일정 날짜(미래)의 이동 지침 전체
+  /// (역할 무관 — 배우자 단독 일정도 포함). "오늘의 동선"에는 섞지 않고
+  /// 별도 "D+N일 후" 섹션으로 보여준다. 그날 가장 빠른 일정 하나만 보여주면
+  /// 같은 날 뒤에 있는 배우자 일정이 가려지므로, 오늘의 동선처럼 그날 전체를
+  /// 담는다.
+  final List<EventGuide> upcomingEventGuides;
 
-  /// [upcomingEventGuide]가 오늘로부터 며칠 뒤인지(1 이상). null이면 다음 일정 없음.
+  /// [upcomingEventGuides]가 오늘로부터 며칠 뒤인지(1 이상). null이면 다음 일정 없음.
   final int? upcomingDayOffset;
 
-  /// [upcomingEventGuide] 시간대 날씨를 기준으로 계산한 옷차림 추천.
+  /// [upcomingEventGuides] 시간대 날씨 전체를 기준으로 계산한 옷차림 추천.
   final OutfitRecommendation? upcomingOutfit;
 
-  /// [upcomingEventGuide] 구간을 1시간 간격으로 보간한 날씨.
+  /// [upcomingEventGuides]가 걸쳐 있는 구간을 1시간 간격으로 보간한 날씨.
   final List<WeatherSnapshot> upcomingOutfitHourlyWeather;
 
   /// 오늘 일정이 없을 때, 외부 API 조회에 실패했을 때 등 계산이 부분적으로
@@ -85,7 +88,7 @@ class TodayGuideResult {
     this.weatherWarnings = const [],
     this.nearbyEvents = const [],
     this.todayEmptyNotice,
-    this.upcomingEventGuide,
+    this.upcomingEventGuides = const [],
     this.upcomingDayOffset,
     this.upcomingOutfit,
     this.upcomingOutfitHourlyWeather = const [],
