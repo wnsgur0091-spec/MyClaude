@@ -2,6 +2,7 @@ import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:geolocator/geolocator.dart';
 
 import '../models/user_settings.dart';
+import 'diagnostic_log.dart';
 import 'geocode/naver_geocode_service.dart';
 
 class ResolvedLocation {
@@ -31,16 +32,33 @@ class LocationService {
     try {
       final hasPermission = await _ensurePermission();
       if (hasPermission) {
-        // 이동경로 추천은 도로/건물 단위 정확도면 충분해서, GPS 정확도를
-        // high가 아니라 medium으로 낮춰 위치 확보 속도를 높인다. 타임아웃도
-        // 10초에서 7초로 줄여 전체 지침서 계산이 GPS 대기로 오래 걸리는
-        // 상황을 줄인다(그래도 못 잡으면 기본 출발지로 폴백).
+        // 실내 등 GPS 신호가 약하면 새 측위가 타임아웃까지 걸리는 경우가
+        // 간헐적으로 있었다(로그로 확인: 절반 정도는 3초 내 성공, 나머지는
+        // 타임아웃까지 꽉 채우고 기본 출발지로 잘못 폴백함). 그래서 안드로이드가
+        // 최근에 캐시해둔 마지막 위치가 있으면(10분 이내) 새 측위를 기다리지
+        // 않고 바로 그걸 쓴다 — 대부분의 경우 몇 분 사이에 크게 이동하지
+        // 않으므로 기본 출발지(집/회사)보다 훨씬 정확하다.
+        final lastKnown = await _safeLastKnown();
+        final lastKnownTime = lastKnown?.timestamp;
+        if (lastKnown != null &&
+            lastKnownTime != null &&
+            DateTime.now().difference(lastKnownTime).inMinutes < 10) {
+          await DiagnosticLog.log('위치: 최근 캐시된 위치 사용(${DateTime.now().difference(lastKnownTime).inSeconds}초 전)');
+          return ResolvedLocation(
+            lat: lastKnown.latitude,
+            lng: lastKnown.longitude,
+            isFallback: false,
+            label: '현재 위치',
+          );
+        }
+
         final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 7),
+            timeLimit: Duration(seconds: 8),
           ),
         );
+        await DiagnosticLog.log('위치: 새 측위 성공');
         return ResolvedLocation(
           lat: position.latitude,
           lng: position.longitude,
@@ -48,10 +66,28 @@ class LocationService {
           label: '현재 위치',
         );
       }
-    } catch (_) {
-      // GPS 실패 시 아래 폴백으로 진행한다.
+    } catch (e) {
+      await DiagnosticLog.log('위치: 새 측위 실패 - $e');
+      // 새 측위 자체가 실패해도 아래에서 마지막으로 알려진 위치를 먼저 시도한다.
     }
+
+    // 새 측위가 실패하거나 타임아웃됐어도, 오래된 마지막 위치라도 있으면
+    // 집/회사 기본 출발지보다는 대체로 더 정확하다.
+    final stale = await _safeLastKnown();
+    if (stale != null) {
+      await DiagnosticLog.log('위치: 오래된 캐시 위치로 폴백');
+      return ResolvedLocation(lat: stale.latitude, lng: stale.longitude, isFallback: true, label: '최근 위치(오래됐을 수 있음)');
+    }
+    await DiagnosticLog.log('위치: 캐시도 없어서 기본 출발지로 폴백');
     return _fallbackLocation(settings);
+  }
+
+  Future<Position?> _safeLastKnown() async {
+    try {
+      return await Geolocator.getLastKnownPosition();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> _ensurePermission() async {
