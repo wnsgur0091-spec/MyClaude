@@ -207,18 +207,15 @@ class GuideEngine {
     final outfitReferenceEvent = nextEventAlreadyToday ? nextEvent : null;
     final outfitHourly = outfitReferenceEvent == null
         ? const <WeatherSnapshot>[]
-        : weatherService
-            .hourlyBreakdown(forecast, outfitReferenceEvent.start, outfitReferenceEvent.end)
-            .take(maxHourlyRows)
-            .toList();
+        : weatherService.hourlyBreakdown(forecast, outfitReferenceEvent.start, outfitReferenceEvent.end,
+            maxHours: maxHourlyRows);
 
     OutfitRecommendation? upcomingOutfit;
     var upcomingOutfitHourly = const <WeatherSnapshot>[];
     if (upcomingEventGuide != null) {
-      upcomingOutfitHourly = weatherService
-          .hourlyBreakdown(forecast, upcomingEventGuide.event.start, upcomingEventGuide.event.end)
-          .take(maxHourlyRows)
-          .toList();
+      upcomingOutfitHourly = weatherService.hourlyBreakdown(
+          forecast, upcomingEventGuide.event.start, upcomingEventGuide.event.end,
+          maxHours: maxHourlyRows);
       upcomingOutfit = OutfitRules.recommend(daySnapshots: upcomingOutfitHourly, gender: settings.gender);
     }
 

@@ -97,14 +97,20 @@ class KmaWeatherService {
   /// 1시간 단위로 보여주기 위해 앞뒤 3시간 예보 사이를 선형 보간한다. 기온은
   /// 보간하고, 하늘상태/강수형태처럼 범주형인 값은 더 가까운 쪽 예보값을 그대로 쓴다.
   /// (실제로 매시 관측된 값이 아니라 추정치라는 점에 유의)
-  List<WeatherSnapshot> hourlyBreakdown(List<WeatherSnapshot> forecast, DateTime start, DateTime end) {
+  ///
+  /// [maxHours]로 반복 횟수를 직접 제한한다 — TimeTree 일정의 end가 비정상적으로
+  /// 먼 미래(예: 시각 파싱 버그, 잘못된 종일 일정 등)여도 이 루프가 사실상
+  /// 무한히 도는 것을 막기 위한 방어 코드다(실제로 이 캡이 없어서 앱이 멈추는
+  /// 문제가 있었다).
+  List<WeatherSnapshot> hourlyBreakdown(List<WeatherSnapshot> forecast, DateTime start, DateTime end,
+      {int maxHours = 24}) {
     if (forecast.isEmpty) return const [];
     final sorted = [...forecast]..sort((a, b) => a.time.compareTo(b.time));
 
     final hours = <WeatherSnapshot>[];
     var t = DateTime(start.year, start.month, start.day, start.hour);
     final endFloor = DateTime(end.year, end.month, end.day, end.hour);
-    while (!t.isAfter(endFloor)) {
+    while (!t.isAfter(endFloor) && hours.length < maxHours) {
       hours.add(_interpolateAt(sorted, t));
       t = t.add(const Duration(hours: 1));
     }

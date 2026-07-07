@@ -116,11 +116,21 @@ class TimeTreeApiService implements CalendarService {
     }
 
     final endAt = (raw['end_at'] as num).toInt();
+    final start = DateTime.fromMillisecondsSinceEpoch(startAt, isUtc: true).toLocal();
+    var end = DateTime.fromMillisecondsSinceEpoch(endAt, isUtc: true).toLocal();
+    // end_at만 이상한 값으로 내려오는 경우(연도가 상식 밖이거나 start보다
+    // 이전)를 대비한 방어 코드. _isSane은 start만 검사하기 때문에 이런
+    // 일정을 걸러내지 못하고, 그 상태로 시간대별 날씨 계산(hourlyBreakdown)에
+    // 넘기면 두 시각 사이를 1시간씩 순회하다 사실상 무한 반복에 빠져 앱이
+    // 멈춘다. 일정 자체를 지우는 대신 1시간짜리로 보정해서 계속 보여준다.
+    if (end.year < 2000 || end.year > 2100 || end.isBefore(start)) {
+      end = start.add(const Duration(hours: 1));
+    }
     return ScheduleEvent(
       id: id,
       title: title,
-      start: DateTime.fromMillisecondsSinceEpoch(startAt, isUtc: true).toLocal(),
-      end: DateTime.fromMillisecondsSinceEpoch(endAt, isUtc: true).toLocal(),
+      start: start,
+      end: end,
       location: location,
       attendeeRole: role,
     );
