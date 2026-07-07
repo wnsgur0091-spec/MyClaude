@@ -6,12 +6,18 @@ import '../../../theme/app_theme.dart';
 import 'transport_card.dart';
 
 class ScheduleTimelineCard extends StatelessWidget {
-  const ScheduleTimelineCard({super.key, required this.guide, this.onAddLocation});
+  const ScheduleTimelineCard({super.key, required this.guide, required this.now, this.onAddLocation});
 
   final EventGuide guide;
 
+  /// 지침서를 계산한 시각. 이 시각이 일정 시작~종료 사이에 있으면
+  /// "일정 소화중" 배지를 보여준다.
+  final DateTime now;
+
   /// 장소가 없는 일정에서 "장소 입력" 버튼을 눌렀을 때 호출된다.
   final VoidCallback? onAddLocation;
+
+  bool get _isOngoing => !now.isBefore(guide.event.start) && now.isBefore(guide.event.end);
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +45,10 @@ class ScheduleTimelineCard extends StatelessWidget {
               if (event.isAllDay) ...[
                 const SizedBox(width: 8),
                 const Text('종일', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+              ],
+              if (_isOngoing) ...[
+                const SizedBox(width: 8),
+                const _OngoingTag(),
               ],
               if (event.attendeeRole == EventAttendeeRole.partner ||
                   event.attendeeRole == EventAttendeeRole.both) ...[
@@ -100,6 +110,23 @@ class ScheduleTimelineCard extends StatelessWidget {
     String fmt(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     final weekday = _weekdayLabels[start.weekday - 1];
     return '${start.month}월 ${start.day}일($weekday) ${fmt(start)} - ${fmt(end)}';
+  }
+}
+
+class _OngoingTag extends StatelessWidget {
+  const _OngoingTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.neonCyan.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.neonCyan.withOpacity(0.6)),
+      ),
+      child: const Text('일정 소화중', style: TextStyle(color: AppColors.neonCyan, fontSize: 10, fontWeight: FontWeight.bold)),
+    );
   }
 }
 

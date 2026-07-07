@@ -2,7 +2,7 @@ import '../models/outfit_recommendation.dart';
 import '../models/user_settings.dart';
 import '../models/weather_snapshot.dart';
 
-/// 기온대별 상/하의/신발 매핑 + 준비물(우산/선글라스/양산) 규칙.
+/// 기온대별 상/하의/신발 매핑 + 준비물(우산/선글라스/양산/마스크) 규칙.
 class OutfitRules {
   static OutfitRecommendation recommend({
     required List<WeatherSnapshot> daySnapshots,
@@ -33,6 +33,9 @@ class OutfitRules {
     if (daySnapshots.any((w) => w.isStrongSun)) {
       items.add('선글라스');
       items.add('양산');
+    }
+    if (daySnapshots.any((w) => w.needsMask)) {
+      items.add('마스크');
     }
 
     return OutfitRecommendation(

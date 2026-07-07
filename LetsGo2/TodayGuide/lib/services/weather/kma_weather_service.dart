@@ -134,6 +134,8 @@ class KmaWeatherService {
               .round(),
       skyCondition: nearer.skyCondition,
       uvIndex: nearer.uvIndex,
+      pm10Grade: nearer.pm10Grade,
+      pm25Grade: nearer.pm25Grade,
     );
   }
 
@@ -144,6 +146,8 @@ class KmaWeatherService {
         precipitationProbability: source.precipitationProbability,
         skyCondition: source.skyCondition,
         uvIndex: source.uvIndex,
+        pm10Grade: source.pm10Grade,
+        pm25Grade: source.pm25Grade,
       );
 
   ({String dateStr, String timeStr}) _latestBaseDateTime(DateTime now) {

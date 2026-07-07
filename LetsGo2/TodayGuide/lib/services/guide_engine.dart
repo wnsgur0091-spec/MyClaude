@@ -12,6 +12,7 @@ import 'location_service.dart';
 import 'outfit_rules.dart';
 import 'route/naver_driving_route_service.dart';
 import 'route/odsay_transit_route_service.dart';
+import 'weather/air_quality_service.dart';
 import 'weather/kma_uv_service.dart';
 import 'weather/kma_weather_service.dart';
 
@@ -28,9 +29,11 @@ class GuideEngine {
     required this.drivingRouteService,
     required this.transitRouteService,
     KmaUvService? uvService,
+    AirQualityService? airQualityService,
     EventLocationOverrideRepository? locationOverrideRepository,
     this.onEventsFetched,
   })  : uvService = uvService ?? KmaUvService(),
+        airQualityService = airQualityService ?? AirQualityService(),
         locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
@@ -38,6 +41,7 @@ class GuideEngine {
   final NaverDrivingRouteService drivingRouteService;
   final OdsayTransitRouteService transitRouteService;
   final KmaUvService uvService;
+  final AirQualityService airQualityService;
   final EventLocationOverrideRepository locationOverrideRepository;
 
   /// 일정을 조회할 때마다(=buildTodayGuide 호출마다) 호출된다.
@@ -181,9 +185,10 @@ class GuideEngine {
     );
   }
 
-  /// 자외선지수를 조회해서 예보 목록에 붙여준다. 위경도를 도시명으로 바꾸지
-  /// 못하거나(매핑 안 된 지역) 조회에 실패하면, 자외선지수 없이도 우산 등
-  /// 다른 추천은 그대로 동작하게 하고 안내 문구만 남긴다.
+  /// 자외선지수/미세먼지를 조회해서 예보 목록에 붙여준다. 둘 다 같은 도시명에
+  /// 의존할 뿐 서로 독립적이라 동시에 조회한다. 위경도를 도시명으로 바꾸지
+  /// 못하거나(매핑 안 된 지역) 조회에 실패하면, 그 정보 없이도 우산 등 다른
+  /// 추천은 그대로 동작하게 하고 안내 문구만 남긴다.
   Future<List<WeatherSnapshot>> _attachUv(
     List<WeatherSnapshot> forecast,
     String? cityName,
@@ -192,13 +197,21 @@ class GuideEngine {
     if (forecast.isEmpty) return forecast;
 
     Map<DateTime, int> uvForecast = const {};
+    AirQualityGrade airQuality = const AirQualityGrade();
     if (cityName != null) {
-      uvForecast = await _safeCall(() => uvService.fetchUvForecast(cityName: cityName, baseTime: DateTime.now())) ??
-          const {};
+      final uvFuture = _safeCall(() => uvService.fetchUvForecast(cityName: cityName, baseTime: DateTime.now()));
+      final airFuture = _safeCall(() => airQualityService.fetchGrade(sidoName: cityName));
+      uvForecast = await uvFuture ?? const {};
+      airQuality = await airFuture ?? const AirQualityGrade();
     }
 
     if (uvForecast.isEmpty) {
       notices.add('자외선지수 정보를 가져오지 못해 선글라스/양산 추천은 표시되지 않았어요.');
+    }
+    if (airQuality.pm10Grade == null && airQuality.pm25Grade == null) {
+      notices.add('미세먼지 정보를 가져오지 못해 마스크 추천은 표시되지 않았어요.');
+    }
+    if (uvForecast.isEmpty && airQuality.pm10Grade == null && airQuality.pm25Grade == null) {
       return forecast;
     }
 
@@ -210,6 +223,8 @@ class GuideEngine {
               precipitationProbability: s.precipitationProbability,
               skyCondition: s.skyCondition,
               uvIndex: uvService.pickForTime(uvForecast, s.time),
+              pm10Grade: airQuality.pm10Grade,
+              pm25Grade: airQuality.pm25Grade,
             ))
         .toList();
   }

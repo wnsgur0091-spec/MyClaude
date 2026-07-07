@@ -315,6 +315,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: ScheduleTimelineCard(
                   guide: g,
+                  now: result.generatedAt,
                   onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
                 ),
               )),

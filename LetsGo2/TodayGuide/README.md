@@ -23,8 +23,9 @@ flutter run --dart-define-from-file=env.json
 | 대중교통 길찾기 | ODsay Lab 대중교통 API | 무료 호출 쿼터 제공, 초과 시 유료 |
 | 기온/하늘상태/강수 | 기상청 공공데이터포털 단기예보 조회서비스(getVilageFcst) | 무료(일일 호출 한도 있음) |
 | 자외선지수 | 기상청 생활기상지수 getUVIdxV4 | 무료, 단 지역코드(areaNo) 매핑표가 필요 |
+| 미세먼지/초미세먼지 | 한국환경공단 에어코리아 시도별 실시간 측정정보(getCtprvnRltmMesureDnsty) | 무료(일 500~10,000건 한도) |
 
-네이버클라우드플랫폼(https://www.ncloud.com) 콘솔에서 Maps(Geocoding + Direction 5) 서비스를 신청하면 Client ID/Secret이 발급됩니다. ODsay는 https://lab.odsay.com, 기상청 키는 https://www.data.go.kr 공공데이터포털에서 각각 회원가입 후 무료로 발급받을 수 있습니다.
+네이버클라우드플랫폼(https://www.ncloud.com) 콘솔에서 Maps(Geocoding + Direction 5) 서비스를 신청하면 Client ID/Secret이 발급됩니다. ODsay는 https://lab.odsay.com, 기상청/에어코리아 키는 https://www.data.go.kr 공공데이터포털에서 각각 회원가입 후 무료로 발급받을 수 있습니다. 에어코리아 API는 기상청과 같은 공공데이터포털 계정의 인증키를 그대로 쓰므로(`KMA_SERVICE_KEY`), "한국환경공단_에어코리아_대기오염정보" 데이터셋 페이지에서 별도로 활용신청만 하면 됩니다.
 
 **중요한 제약을 설계에 반영했습니다.**
 
