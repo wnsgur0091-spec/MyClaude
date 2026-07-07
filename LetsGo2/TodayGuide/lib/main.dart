@@ -60,6 +60,7 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
       },
     );
     await service.requestPermission();
+    await service.scheduleDailyGreeting();
     if (mounted) setState(() => _notificationService = service);
   }
 

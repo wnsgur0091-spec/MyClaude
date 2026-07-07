@@ -28,6 +28,12 @@ class NotificationService {
   static const _eventReminderSlotCount = 50;
   static const _reminderLeadTime = Duration(hours: 3);
 
+  static const _dailyGreetingChannelId = 'today_guide_daily_greeting';
+  static const _dailyGreetingChannelName = '아침 인사말 알림';
+  static const _dailyGreetingNotificationId = 3000;
+  static const _dailyGreetingHour = 7;
+  static const _dailyGreetingMinute = 0;
+
   /// 예전 버전(고정 시각 일일 알람)에서 쓰던 알림 id. 남아있으면 취소만 한다.
   static const _legacyDailyNotificationId = 1001;
 
@@ -56,10 +62,49 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
-  /// 예약된 일정 알림을 전부 취소한다. 앱 초기화 시 사용.
+  /// 예약된 일정 알림을 전부 취소한다. 앱 초기화 시 사용. 매일 아침 인사말
+  /// 알림은 일정/계정과 무관한 별도 알람이라 여기서 건드리지 않는다.
   Future<void> cancelAll() async {
     for (var i = 0; i < _eventReminderSlotCount; i++) {
       await _plugin.cancel(_eventReminderIdBase + i);
+    }
+  }
+
+  /// 매일 아침 7시에 "오늘의 지침서를 확인해보세요" 알림을 보낸다. 일정
+  /// 알림과 같은 이유로(안드로이드 백그라운드 실행 제약) 실제 날씨/일정
+  /// 기반 인사말을 미리 계산해서 담지 않는다 — 탭해서 앱을 열면
+  /// TodayGuideScreen이 그 시점 기준으로 계산한 인사말을 화면에 보여준다.
+  /// [DateTimeComponents.time]으로 예약해서 한 번 예약하면 매일 반복된다.
+  Future<void> scheduleDailyGreeting() async {
+    final now = tz.TZDateTime.now(tz.local);
+    var fireAt = tz.TZDateTime(tz.local, now.year, now.month, now.day, _dailyGreetingHour, _dailyGreetingMinute);
+    if (!fireAt.isAfter(now)) {
+      fireAt = fireAt.add(const Duration(days: 1));
+    }
+
+    try {
+      await _plugin.zonedSchedule(
+        _dailyGreetingNotificationId,
+        '좋은 아침이에요!',
+        '오늘의 지침서를 확인해보세요.',
+        fireAt,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _dailyGreetingChannelId,
+            _dailyGreetingChannelName,
+            channelDescription: '매일 아침 7시에 오늘의 지침서 확인을 알려줍니다.',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: tapPayload,
+      );
+      await DiagnosticLog.log('아침 인사말 알림 예약: 매일 $_dailyGreetingHour시 $_dailyGreetingMinute분');
+    } catch (e) {
+      await DiagnosticLog.log('아침 인사말 알림 예약 실패: $e');
     }
   }
 
