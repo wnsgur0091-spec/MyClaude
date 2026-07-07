@@ -58,6 +58,9 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   late Future<TodayGuideResult> _future;
   bool _locationPromptShown = false;
 
+  /// 0 = 오늘, 1 = 다음 일정(D+N). 새로 조회할 때마다 "오늘" 탭으로 되돌린다.
+  int _selectedGuideTab = 0;
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +79,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
 
   Future<TodayGuideResult> _load() {
     _locationPromptShown = false;
+    _selectedGuideTab = 0;
     return _guideEngine.buildTodayGuide(
       settings: widget.settings,
       calendarService: buildCalendarService(widget.settings),
@@ -286,6 +290,12 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   }
 
   Widget _buildResult(TodayGuideResult result) {
+    final hasUpcoming = result.upcomingEventGuide != null;
+    // 다음 일정이 없는데도 탭 상태가 1(다음 일정)로 남아있으면(예: 새로고침
+    // 사이 데이터가 바뀐 경우) 항상 "오늘" 탭으로 되돌린다.
+    if (!hasUpcoming) _selectedGuideTab = 0;
+    final showUpcomingTab = hasUpcoming && _selectedGuideTab == 1;
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -304,63 +314,16 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
           const SizedBox(height: 16),
           _AlarmBanner(text: result.alarmNotice!),
         ],
-        const SizedBox(height: 20),
-        OutfitCard(
-          outfit: result.outfit,
-          referenceEvent: result.outfitEvent,
-          hourlyWeather: result.outfitHourlyWeather,
-          notice: result.todayEmptyNotice,
-        ),
-        const SizedBox(height: 24),
-        const Text('오늘의 동선',
-            style: TextStyle(
-                color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-        const SizedBox(height: 12),
-        if (result.eventGuides.isEmpty)
-          Text(result.todayEmptyNotice ?? '오늘 등록된 일정이 없어요.',
-              style: const TextStyle(color: AppColors.textSecondary))
-        else
-          ...result.eventGuides.map((g) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ScheduleTimelineCard(
-                  guide: g,
-                  now: result.generatedAt,
-                  onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
-                ),
-              )),
-        if (result.upcomingEventGuide != null) ...[
-          const SizedBox(height: 24),
-          Text('D+${result.upcomingDayOffset}일 후의 동선',
-              style: const TextStyle(
-                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 12),
-          ScheduleTimelineCard(
-            guide: result.upcomingEventGuide!,
-            now: result.generatedAt,
-            onAddLocation:
-                result.upcomingEventGuide!.missingLocation ? () => _addLocationFor(result.upcomingEventGuide!.event) : null,
+        if (hasUpcoming) ...[
+          const SizedBox(height: 20),
+          _GuideTabSelector(
+            selectedIndex: _selectedGuideTab,
+            upcomingLabel: 'D+${result.upcomingDayOffset}일 후',
+            onSelect: (index) => setState(() => _selectedGuideTab = index),
           ),
-          if (result.upcomingOutfit != null) ...[
-            const SizedBox(height: 16),
-            OutfitCard(
-              title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
-              outfit: result.upcomingOutfit!,
-              referenceEvent: result.upcomingEventGuide!.event,
-              hourlyWeather: result.upcomingOutfitHourlyWeather,
-            ),
-          ],
         ],
-        if (result.nearbyEvents.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          const Text('오늘 근처 볼거리',
-              style: TextStyle(
-                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 4),
-          const Text('오늘 남은 일정이 없어서, 현재 위치 반경 20km 안의 축제/행사를 찾아봤어요.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          const SizedBox(height: 12),
-          NearbyEventsCard(events: result.nearbyEvents),
-        ],
+        const SizedBox(height: 20),
+        if (showUpcomingTab) ..._buildUpcomingTabContent(result) else ..._buildTodayTabContent(result),
         if (result.notices.isNotEmpty) ...[
           const SizedBox(height: 20),
           ...result.notices.map((n) => Padding(
@@ -380,6 +343,74 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         ],
       ],
     );
+  }
+
+  /// "오늘" 탭 내용. 오늘 남은 일정이 없으면 옷차림/동선 카드는 아예 보여주지
+  /// 않고 안내 문구 하나만 보여준다(다음 일정이 있으면 별도 탭에서 확인).
+  List<Widget> _buildTodayTabContent(TodayGuideResult result) {
+    if (result.eventGuides.isEmpty) {
+      return [
+        _NoticeStrip(text: result.todayEmptyNotice ?? '오늘 등록된 일정이 없어요.'),
+        if (result.nearbyEvents.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text('오늘 근처 볼거리',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const SizedBox(height: 4),
+          const Text('오늘 남은 일정이 없어서, 현재 위치 반경 20km 안의 축제/행사를 찾아봤어요.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          NearbyEventsCard(events: result.nearbyEvents),
+        ],
+      ];
+    }
+
+    return [
+      OutfitCard(
+        outfit: result.outfit,
+        referenceEvent: result.outfitEvent,
+        hourlyWeather: result.outfitHourlyWeather,
+      ),
+      const SizedBox(height: 24),
+      const Text('오늘의 동선',
+          style:
+              TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+      const SizedBox(height: 12),
+      ...result.eventGuides.map((g) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: ScheduleTimelineCard(
+              guide: g,
+              now: result.generatedAt,
+              onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
+            ),
+          )),
+    ];
+  }
+
+  /// "D+N일 후" 탭 내용. 오늘 일정이 없을 때 대신 계산해둔 다음 일정의
+  /// 동선/옷차림을 "오늘"과 완전히 분리된 탭으로 보여준다.
+  List<Widget> _buildUpcomingTabContent(TodayGuideResult result) {
+    final guide = result.upcomingEventGuide!;
+    return [
+      if (result.upcomingOutfit != null) ...[
+        OutfitCard(
+          title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
+          outfit: result.upcomingOutfit!,
+          referenceEvent: guide.event,
+          hourlyWeather: result.upcomingOutfitHourlyWeather,
+        ),
+        const SizedBox(height: 24),
+      ],
+      Text('D+${result.upcomingDayOffset}일 후의 동선',
+          style: const TextStyle(
+              color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+      const SizedBox(height: 12),
+      ScheduleTimelineCard(
+        guide: guide,
+        now: result.generatedAt,
+        onAddLocation: guide.missingLocation ? () => _addLocationFor(guide.event) : null,
+      ),
+    ];
   }
 
   /// 앱 초기화 확인 다이얼로그. 확인하면 설정/로그인/알림을 모두 지우고
@@ -470,6 +501,63 @@ class _BriefingCard extends StatelessWidget {
                     color: AppColors.textPrimary, fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.5)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "오늘" / "D+N일 후"를 완전히 분리된 탭으로 전환하는 세그먼트 선택기.
+class _GuideTabSelector extends StatelessWidget {
+  const _GuideTabSelector({required this.selectedIndex, required this.upcomingLabel, required this.onSelect});
+
+  final int selectedIndex;
+  final String upcomingLabel;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _GuideTabButton(label: '오늘', selected: selectedIndex == 0, onTap: () => onSelect(0)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _GuideTabButton(label: upcomingLabel, selected: selectedIndex == 1, onTap: () => onSelect(1)),
+        ),
+      ],
+    );
+  }
+}
+
+class _GuideTabButton extends StatelessWidget {
+  const _GuideTabButton({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: selected ? AppColors.neonCyan.withOpacity(0.18) : AppColors.spacePanelAlt,
+          border: Border.all(color: selected ? AppColors.neonCyan : AppColors.starDim, width: 1.4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? AppColors.neonCyan : AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

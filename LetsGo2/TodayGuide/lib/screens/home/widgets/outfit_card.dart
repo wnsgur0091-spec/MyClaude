@@ -12,7 +12,6 @@ class OutfitCard extends StatelessWidget {
     this.title = '오늘의 옷차림',
     this.referenceEvent,
     this.hourlyWeather = const [],
-    this.notice,
   });
 
   final OutfitRecommendation outfit;
@@ -25,10 +24,6 @@ class OutfitCard extends StatelessWidget {
 
   /// [referenceEvent] 구간의 1시간 간격 예상 날씨.
   final List<WeatherSnapshot> hourlyWeather;
-
-  /// 오늘 일정이 없을 때 등, 옷차림 추천이 일반적인 차림으로 안내되는
-  /// 맥락을 설명하는 문구. 있으면 [outfit.reason] 위에 강조해서 보여준다.
-  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -61,10 +56,6 @@ class OutfitCard extends StatelessWidget {
               '"${referenceEvent!.title}" 일정(${_formatRange(referenceEvent!.start, referenceEvent!.end)}) 기준으로 안내해요.',
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
-          ],
-          if (notice != null) ...[
-            const SizedBox(height: 6),
-            Text(notice!, style: const TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 16),
           _OutfitRow(label: '상의', value: outfit.top),
