@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../models/nearby_event.dart';
 import '../models/route_plan.dart';
 import '../models/schedule_event.dart';
 import '../models/today_guide_result.dart';
@@ -9,12 +10,14 @@ import 'calendar/calendar_service.dart';
 import 'diagnostic_log.dart';
 import 'event_location_override_repository.dart';
 import 'location_service.dart';
+import 'nearby_event_service.dart';
 import 'outfit_rules.dart';
 import 'route/naver_driving_route_service.dart';
 import 'route/odsay_transit_route_service.dart';
 import 'weather/air_quality_service.dart';
 import 'weather/kma_uv_service.dart';
 import 'weather/kma_weather_service.dart';
+import 'weather/weather_warning_service.dart';
 
 /// 오늘의 지침서 핵심 계산기.
 /// 앱을 열거나 새로고침할 때마다 그 시점의 현재 위치와 TimeTree 일정을
@@ -30,10 +33,14 @@ class GuideEngine {
     required this.transitRouteService,
     KmaUvService? uvService,
     AirQualityService? airQualityService,
+    WeatherWarningService? weatherWarningService,
+    NearbyEventService? nearbyEventService,
     EventLocationOverrideRepository? locationOverrideRepository,
     this.onEventsFetched,
   })  : uvService = uvService ?? KmaUvService(),
         airQualityService = airQualityService ?? AirQualityService(),
+        weatherWarningService = weatherWarningService ?? WeatherWarningService(),
+        nearbyEventService = nearbyEventService ?? NearbyEventService(),
         locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
   final LocationService locationService;
@@ -42,6 +49,8 @@ class GuideEngine {
   final OdsayTransitRouteService transitRouteService;
   final KmaUvService uvService;
   final AirQualityService airQualityService;
+  final WeatherWarningService weatherWarningService;
+  final NearbyEventService nearbyEventService;
   final EventLocationOverrideRepository locationOverrideRepository;
 
   /// 일정을 조회할 때마다(=buildTodayGuide 호출마다) 호출된다.
@@ -111,8 +120,16 @@ class GuideEngine {
     final rawForecastFuture = _safeForecast(currentLocation.lat, currentLocation.lng, notices);
     final cityNameFuture = _safeCall(() => locationService.resolveCityName(currentLocation.lat, currentLocation.lng));
     final rawForecast = await rawForecastFuture;
-    final forecast = await _attachUv(rawForecast, await cityNameFuture, notices);
-    unawaited(DiagnosticLog.log('  날씨/자외선지수 조회 완료 (${stageWatch.elapsedMilliseconds}ms)'));
+    final cityName = await cityNameFuture;
+
+    // 자외선지수/미세먼지 부착과 기상특보 조회도 서로 독립적이라 동시에 시작한다.
+    final forecastFuture = _attachUv(rawForecast, cityName, notices);
+    final warningsFuture = cityName == null
+        ? Future<List<String>>.value(const [])
+        : weatherWarningService.fetchActiveWarnings(cityName: cityName, now: now);
+    final forecast = await forecastFuture;
+    final weatherWarnings = await warningsFuture;
+    unawaited(DiagnosticLog.log('  날씨/자외선지수/특보 조회 완료 (${stageWatch.elapsedMilliseconds}ms)'));
 
     var originLat = currentLocation.lat;
     var originLng = currentLocation.lng;
@@ -134,10 +151,17 @@ class GuideEngine {
       originLng = built.nextOriginLng;
     }
 
+    var nearbyEvents = const <NearbyEvent>[];
     if (events.isEmpty) {
       notices.add(hadEventsToday
           ? '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.'
           : '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.');
+
+      // 오늘 남은 일정이 없으면 현재 위치 근처(반경 20km) 축제/행사를 추천해준다.
+      nearbyEvents = await _safeCall(
+            () => nearbyEventService.fetchNearbyFestivals(lat: currentLocation.lat, lng: currentLocation.lng),
+          ) ??
+          const [];
     }
 
     if (nextEvent != null && !nextEventAlreadyToday) {
@@ -180,6 +204,8 @@ class GuideEngine {
       outfitEvent: nextEvent,
       outfitHourlyWeather: outfitHourly,
       alarmNotice: alarmNotice,
+      weatherWarnings: weatherWarnings,
+      nearbyEvents: nearbyEvents,
       notices: notices,
     );
   }

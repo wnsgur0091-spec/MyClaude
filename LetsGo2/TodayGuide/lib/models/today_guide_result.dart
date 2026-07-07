@@ -1,3 +1,4 @@
+import 'nearby_event.dart';
 import 'outfit_recommendation.dart';
 import 'route_plan.dart';
 import 'schedule_event.dart';
@@ -40,6 +41,13 @@ class TodayGuideResult {
   /// 강조해서 보여준다(다른 안내 문구와는 성격이 달라 구분해서 관리).
   final String? alarmNotice;
 
+  /// 현재 발효 중인 기상특보 제목들(예: "강풍주의보"). 안전 관련이라
+  /// 다른 안내 문구보다 눈에 띄게 상단에 보여준다.
+  final List<String> weatherWarnings;
+
+  /// 오늘 남은 일정이 없을 때, 현재 위치 근처(반경 20km) 축제/행사 추천.
+  final List<NearbyEvent> nearbyEvents;
+
   /// 오늘 일정이 없을 때, 외부 API 조회에 실패했을 때 등 계산이 부분적으로
   /// 실패했을 때 표시할 안내 문구. 화면 하단에 보여준다.
   final List<String> notices;
@@ -51,6 +59,8 @@ class TodayGuideResult {
     this.outfitEvent,
     this.outfitHourlyWeather = const [],
     this.alarmNotice,
+    this.weatherWarnings = const [],
+    this.nearbyEvents = const [],
     this.notices = const [],
   });
 }

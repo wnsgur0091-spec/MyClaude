@@ -15,6 +15,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_alert_dialog.dart';
 import '../../widgets/starfield_background.dart';
 import '../onboarding/widgets/timetree_webview_login_screen.dart';
+import 'widgets/nearby_events_card.dart';
 import 'widgets/outfit_card.dart';
 import 'widgets/schedule_timeline_card.dart';
 
@@ -290,6 +291,13 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         _buildHeader(result),
+        if (result.weatherWarnings.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...result.weatherWarnings.map((w) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _WeatherWarningBanner(text: w),
+              )),
+        ],
         if (result.alarmNotice != null) ...[
           const SizedBox(height: 16),
           _AlarmBanner(text: result.alarmNotice!),
@@ -316,6 +324,17 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                   onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
                 ),
               )),
+        if (result.nearbyEvents.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text('오늘 근처 볼거리',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const SizedBox(height: 4),
+          const Text('오늘 남은 일정이 없어서, 현재 위치 반경 20km 안의 축제/행사를 찾아봤어요.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          NearbyEventsCard(events: result.nearbyEvents),
+        ],
         if (result.notices.isNotEmpty) ...[
           const SizedBox(height: 20),
           ...result.notices.map((n) => Padding(
@@ -390,6 +409,36 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '${dt.month}월 ${dt.day}일 · $h:$m 기준';
+  }
+}
+
+/// 현재 발효 중인 기상특보 안내 배너. 안전 관련이라 다른 안내 문구보다
+/// 눈에 띄게 경고색으로 강조한다.
+class _WeatherWarningBanner extends StatelessWidget {
+  const _WeatherWarningBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: AppColors.danger.withOpacity(0.16),
+        border: Border.all(color: AppColors.danger.withOpacity(0.7), width: 1.4),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 20, color: AppColors.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('$text 발효 중이에요.',
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
