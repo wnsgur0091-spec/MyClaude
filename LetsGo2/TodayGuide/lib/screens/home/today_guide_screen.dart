@@ -309,6 +309,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
           outfit: result.outfit,
           referenceEvent: result.outfitEvent,
           hourlyWeather: result.outfitHourlyWeather,
+          notice: result.todayEmptyNotice,
         ),
         const SizedBox(height: 24),
         const Text('오늘의 동선',
@@ -316,7 +317,8 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                 color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
         const SizedBox(height: 12),
         if (result.eventGuides.isEmpty)
-          const Text('오늘 등록된 일정이 없어요.', style: TextStyle(color: AppColors.textSecondary))
+          Text(result.todayEmptyNotice ?? '오늘 등록된 일정이 없어요.',
+              style: const TextStyle(color: AppColors.textSecondary))
         else
           ...result.eventGuides.map((g) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -326,6 +328,28 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
                   onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
                 ),
               )),
+        if (result.upcomingEventGuide != null) ...[
+          const SizedBox(height: 24),
+          Text('D+${result.upcomingDayOffset}일 후의 동선',
+              style: const TextStyle(
+                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const SizedBox(height: 12),
+          ScheduleTimelineCard(
+            guide: result.upcomingEventGuide!,
+            now: result.generatedAt,
+            onAddLocation:
+                result.upcomingEventGuide!.missingLocation ? () => _addLocationFor(result.upcomingEventGuide!.event) : null,
+          ),
+          if (result.upcomingOutfit != null) ...[
+            const SizedBox(height: 16),
+            OutfitCard(
+              title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
+              outfit: result.upcomingOutfit!,
+              referenceEvent: result.upcomingEventGuide!.event,
+              hourlyWeather: result.upcomingOutfitHourlyWeather,
+            ),
+          ],
+        ],
         if (result.nearbyEvents.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text('오늘 근처 볼거리',

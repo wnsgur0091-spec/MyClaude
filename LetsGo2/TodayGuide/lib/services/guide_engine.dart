@@ -153,18 +153,27 @@ class GuideEngine {
     }
 
     var nearbyEvents = const <NearbyEvent>[];
+    String? todayEmptyNotice;
     if (events.isEmpty) {
-      notices.add(hadEventsToday
+      todayEmptyNotice = hadEventsToday
           ? '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.'
-          : '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.');
+          : '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
 
-      // 오늘 남은 일정이 없으면 현재 위치 근처(반경 20km) 축제/행사를 추천해준다.
-      nearbyEvents = await _safeCall(
-            () => nearbyEventService.fetchNearbyFestivals(lat: currentLocation.lat, lng: currentLocation.lng),
-          ) ??
-          const [];
+      // 오늘 남은 일정이 없으면 현재 위치 근처(반경 20km) 축제/행사를
+      // 추천해준다. 다만 하루를 시작하는 낮 12시 이전에만 보여준다 — 오후에
+      // 뜬금없이 "오늘 볼거리 추천"이 뜨는 건 맥락에 안 맞아서다.
+      if (now.hour < 12) {
+        nearbyEvents = await _safeCall(
+              () => nearbyEventService.fetchNearbyFestivals(lat: currentLocation.lat, lng: currentLocation.lng),
+            ) ??
+            const [];
+      }
     }
 
+    // 오늘 일정이 없어서 대신 계산한 "다음 일정"(미래 날짜)은 오늘의
+    // 동선/옷차림에 섞지 않고 별도 D+N 섹션 데이터로 분리해서 들고 있는다.
+    EventGuide? upcomingEventGuide;
+    int? upcomingDayOffset;
     if (nextEvent != null && !nextEventAlreadyToday) {
       final built = await _buildEventGuide(
         event: nextEvent,
@@ -173,13 +182,16 @@ class GuideEngine {
         forecast: forecast,
         notices: notices,
       );
-      eventGuides.add(built.eventGuide);
+      upcomingEventGuide = built.eventGuide;
+      upcomingDayOffset = DateTime(nextEvent.start.year, nextEvent.start.month, nextEvent.start.day)
+          .difference(DateTime(now.year, now.month, now.day))
+          .inDays;
     }
 
     final alarmNotice = nextEvent == null ? null : _alarmNotice(nextEvent, now);
 
     unawaited(DiagnosticLog.log(
-        '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${nextEvent != null && !nextEventAlreadyToday ? 1 : 0}건)'));
+        '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${upcomingEventGuide != null ? 1 : 0}건)'));
 
     final outfit = OutfitRules.recommend(
       daySnapshots: daySnapshots,
@@ -187,16 +199,28 @@ class GuideEngine {
       noEventsReason: events.isEmpty,
     );
 
-    // 옷차림은 "가장 가까운 다음 일정"을 기준으로 시간대별 날씨를 함께 보여준다.
+    // "오늘의 옷차림"에 딸린 시간대별 날씨는 오늘 일정 기준일 때만 보여준다.
+    // 다음 일정이 미래 날짜라면 여기 섞지 않고 아래 upcomingOutfit으로 분리한다.
     // 최대 12시간까지만 보여줘서 종일 일정처럼 구간이 긴 경우에도 표가 너무
     // 길어지지 않게 한다.
     const maxHourlyRows = 12;
-    final outfitHourly = nextEvent == null
+    final outfitReferenceEvent = nextEventAlreadyToday ? nextEvent : null;
+    final outfitHourly = outfitReferenceEvent == null
         ? const <WeatherSnapshot>[]
         : weatherService
-            .hourlyBreakdown(forecast, nextEvent.start, nextEvent.end)
+            .hourlyBreakdown(forecast, outfitReferenceEvent.start, outfitReferenceEvent.end)
             .take(maxHourlyRows)
             .toList();
+
+    OutfitRecommendation? upcomingOutfit;
+    var upcomingOutfitHourly = const <WeatherSnapshot>[];
+    if (upcomingEventGuide != null) {
+      upcomingOutfitHourly = weatherService
+          .hourlyBreakdown(forecast, upcomingEventGuide.event.start, upcomingEventGuide.event.end)
+          .take(maxHourlyRows)
+          .toList();
+      upcomingOutfit = OutfitRules.recommend(daySnapshots: upcomingOutfitHourly, gender: settings.gender);
+    }
 
     final briefing = _buildBriefing(
       now: now,
@@ -211,11 +235,16 @@ class GuideEngine {
       eventGuides: eventGuides,
       outfit: outfit,
       briefing: briefing,
-      outfitEvent: nextEvent,
+      outfitEvent: outfitReferenceEvent,
       outfitHourlyWeather: outfitHourly,
       alarmNotice: alarmNotice,
       weatherWarnings: weatherWarnings,
       nearbyEvents: nearbyEvents,
+      todayEmptyNotice: todayEmptyNotice,
+      upcomingEventGuide: upcomingEventGuide,
+      upcomingDayOffset: upcomingDayOffset,
+      upcomingOutfit: upcomingOutfit,
+      upcomingOutfitHourlyWeather: upcomingOutfitHourly,
       notices: notices,
     );
   }

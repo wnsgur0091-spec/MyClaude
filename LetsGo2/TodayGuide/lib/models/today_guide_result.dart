@@ -49,8 +49,26 @@ class TodayGuideResult {
   /// 다른 안내 문구보다 눈에 띄게 상단에 보여준다.
   final List<String> weatherWarnings;
 
-  /// 오늘 남은 일정이 없을 때, 현재 위치 근처(반경 20km) 축제/행사 추천.
+  /// 오늘 남은 일정이 없을 때(낮 12시 이전에만), 현재 위치 근처(반경 20km)
+  /// 축제/행사 추천.
   final List<NearbyEvent> nearbyEvents;
+
+  /// 오늘 등록된/남은 일정이 없을 때 보여줄 안내 문구. 하단 알림 목록이
+  /// 아니라 "오늘의 옷차림"과 "오늘의 동선" 섹션 안에서 문맥에 맞게 보여준다.
+  final String? todayEmptyNotice;
+
+  /// 오늘 일정이 없어서 대신 보여주는 다음 일정(미래 날짜)의 이동 지침.
+  /// "오늘의 동선"에는 섞지 않고 별도 "D+N일 후" 섹션으로 보여준다.
+  final EventGuide? upcomingEventGuide;
+
+  /// [upcomingEventGuide]가 오늘로부터 며칠 뒤인지(1 이상). null이면 다음 일정 없음.
+  final int? upcomingDayOffset;
+
+  /// [upcomingEventGuide] 시간대 날씨를 기준으로 계산한 옷차림 추천.
+  final OutfitRecommendation? upcomingOutfit;
+
+  /// [upcomingEventGuide] 구간을 1시간 간격으로 보간한 날씨.
+  final List<WeatherSnapshot> upcomingOutfitHourlyWeather;
 
   /// 오늘 일정이 없을 때, 외부 API 조회에 실패했을 때 등 계산이 부분적으로
   /// 실패했을 때 표시할 안내 문구. 화면 하단에 보여준다.
@@ -66,6 +84,11 @@ class TodayGuideResult {
     this.alarmNotice,
     this.weatherWarnings = const [],
     this.nearbyEvents = const [],
+    this.todayEmptyNotice,
+    this.upcomingEventGuide,
+    this.upcomingDayOffset,
+    this.upcomingOutfit,
+    this.upcomingOutfitHourlyWeather = const [],
     this.notices = const [],
   });
 }

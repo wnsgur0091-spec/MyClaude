@@ -9,17 +9,26 @@ class OutfitCard extends StatelessWidget {
   const OutfitCard({
     super.key,
     required this.outfit,
+    this.title = '오늘의 옷차림',
     this.referenceEvent,
     this.hourlyWeather = const [],
+    this.notice,
   });
 
   final OutfitRecommendation outfit;
 
-  /// 옷차림 추천이 기준으로 삼은 일정(가장 가까운 다음 일정). 없으면 표시하지 않는다.
+  /// 카드 제목. "오늘의 옷차림" 외에 "D+N일 후의 옷차림" 등으로도 재사용한다.
+  final String title;
+
+  /// 옷차림 추천이 기준으로 삼은 일정. 없으면 표시하지 않는다.
   final ScheduleEvent? referenceEvent;
 
   /// [referenceEvent] 구간의 1시간 간격 예상 날씨.
   final List<WeatherSnapshot> hourlyWeather;
+
+  /// 오늘 일정이 없을 때 등, 옷차림 추천이 일반적인 차림으로 안내되는
+  /// 맥락을 설명하는 문구. 있으면 [outfit.reason] 위에 강조해서 보여준다.
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -38,12 +47,12 @@ class OutfitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.checkroom, color: AppColors.neonPurple),
-              SizedBox(width: 8),
-              Text('오늘의 옷차림',
-                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.checkroom, color: AppColors.neonPurple),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           if (referenceEvent != null) ...[
@@ -52,6 +61,10 @@ class OutfitCard extends StatelessWidget {
               '"${referenceEvent!.title}" 일정(${_formatRange(referenceEvent!.start, referenceEvent!.end)}) 기준으로 안내해요.',
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
+          ],
+          if (notice != null) ...[
+            const SizedBox(height: 6),
+            Text(notice!, style: const TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600)),
           ],
           const SizedBox(height: 16),
           _OutfitRow(label: '상의', value: outfit.top),

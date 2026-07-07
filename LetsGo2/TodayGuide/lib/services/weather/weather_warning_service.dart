@@ -22,25 +22,30 @@ class WeatherWarningService {
     '부산': '159',
   };
 
+  static const _lookback = Duration(minutes: 30);
+
   /// [cityName] 기준으로, 앱 구동 시점([now]) 기준 최근 30분 이내에 발표된
   /// 특보 중 아직 해제되지 않은 것으로 보이는 항목의 제목 목록을 반환한다.
-  /// 기상청 API는 그날 발표된 특보 전체(하루 종일 여러 번 발표/해제된 것까지)를
-  /// 돌려주기 때문에, 발표시각(tmFc) 기준으로 최근 것만 남기지 않으면 화면이
-  /// 지난 특보로 도배된다. 매핑 안 된 지역이거나 조회 실패/최근 특보 없음이면
-  /// 빈 리스트.
+  /// fromTmFc/toTmFc에 날짜만 넘기면 그날 발표된 특보 전체(하루 종일 여러 번
+  /// 발표/해제된 것까지)가 돌아오기 때문에, 분단위 발표시각으로 서버 요청
+  /// 자체를 좁히고 클라이언트에서도 한 번 더 검증한다. 매핑 안 된 지역이거나
+  /// 조회 실패/최근 특보 없음이면 빈 리스트.
   Future<List<String>> fetchActiveWarnings({required String cityName, required DateTime now}) async {
     final stnId = _knownStationIdByCityName[cityName];
     if (stnId == null || AppConfig.kmaServiceKey.isEmpty) return const [];
 
-    final today = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final cutoff = now.subtract(_lookback);
+    // fromTmFc/toTmFc는 날짜(yyyyMMdd)만 넘기면 자정~자정 하루 전체가 조회돼서
+    // 하루 종일 쌓인 발표가 다 돌아온다. 분단위(yyyyMMddHHmm)까지 넘겨서
+    // 서버 단에서부터 최근 30분 구간만 받도록 좁힌다.
     final uri = Uri.parse(_endpoint).replace(queryParameters: {
       'serviceKey': AppConfig.kmaServiceKey,
       'pageNo': '1',
       'numOfRows': '30',
       'dataType': 'JSON',
       'stnId': stnId,
-      'fromTmFc': today,
-      'toTmFc': today,
+      'fromTmFc': _formatTmFc(cutoff),
+      'toTmFc': _formatTmFc(now),
     });
 
     try {
@@ -59,11 +64,11 @@ class WeatherWarningService {
 
       final items = (body['response']?['body']?['items']?['item'] as List<dynamic>?) ?? const [];
 
-      // 발표시각(tmFc, yyyyMMddHHmm)이 앱 구동 시점 기준 최근 30분 이내인
-      // 항목만 남긴다. 이 필터가 없으면 그날 이미 지난 발표까지 전부 노출된다.
-      final cutoff = now.subtract(const Duration(minutes: 30));
+      // 서버에 fromTmFc/toTmFc로 이미 최근 30분 구간을 요청했지만, 혹시
+      // API가 분단위를 무시하고 날짜 단위로만 걸러줄 가능성에 대비해
+      // 발표시각(tmFc)을 다시 한번 클라이언트에서도 검증한다.
       final recentItems = items.cast<Map<String, dynamic>>().where((item) {
-        final tmFc = _parseTmFc(item['tmFc'] as String?);
+        final tmFc = _parseTmFc(item['tmFc']);
         return tmFc != null && !tmFc.isBefore(cutoff);
       });
 
@@ -77,9 +82,8 @@ class WeatherWarningService {
           .toSet() // 같은 특보가 여러 번 나오는 경우 중복 제거
           .toList();
 
-      if (items.isNotEmpty && titles.isEmpty) {
-        await DiagnosticLog.log('기상특보: 오늘 발표 ${items.length}건이지만 최근 30분 이내 발표(해제 제외)는 없음');
-      }
+      await DiagnosticLog.log(
+          '기상특보: 조회 ${items.length}건(최근 30분 요청) -> 필터 후 ${titles.length}건${items.isNotEmpty ? ' (원본 tmFc 예시: ${items.take(3).map((e) => (e as Map<String, dynamic>)['tmFc']).join(', ')})' : ''}');
       return titles;
     } catch (e) {
       await DiagnosticLog.log('기상특보 조회 예외: $e');
@@ -88,8 +92,10 @@ class WeatherWarningService {
   }
 
   /// 기상청 발표시각(tmFc) 형식(yyyyMMddHHmm)을 DateTime으로 변환한다.
+  /// API가 문자열 대신 숫자로 내려줄 가능성까지 방어적으로 처리한다.
   /// 형식이 다르거나 파싱에 실패하면 null(해당 항목은 필터에서 제외됨).
-  DateTime? _parseTmFc(String? tmFc) {
+  DateTime? _parseTmFc(dynamic raw) {
+    final tmFc = raw?.toString();
     if (tmFc == null || tmFc.length < 12) return null;
     try {
       return DateTime(
@@ -102,5 +108,11 @@ class WeatherWarningService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// DateTime을 기상청 발표시각 쿼리 형식(yyyyMMddHHmm)으로 변환한다.
+  String _formatTmFc(DateTime dt) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${dt.year}${two(dt.month)}${two(dt.day)}${two(dt.hour)}${two(dt.minute)}';
   }
 }
