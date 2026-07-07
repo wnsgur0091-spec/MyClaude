@@ -197,7 +197,11 @@ class GuideEngine {
           .inDays;
     }
 
-    final alarmNotice = nextEvent == null ? null : _alarmNotice(nextEvent, now);
+    // 알림 배너는 실제로 알림이 울리는 대상(본인/같이 일정)만 기준으로
+    // 삼는다. nextEvent(역할 무관)를 쓰면 배우자 단독 일정에 대해 "알림이
+    // 울린다"고 잘못 안내하게 된다(그 일정엔 실제로 알림이 안 울림).
+    final nextOwnEvent = fetched.nextOwnUpcomingEvent;
+    final alarmNotice = nextOwnEvent == null ? null : _alarmNotice(nextOwnEvent, now);
 
     unawaited(DiagnosticLog.log(
         '  이동경로 계산 완료 (${stageWatch.elapsedMilliseconds}ms, 일정 ${events.length}건 + 다음일정 ${upcomingEventGuide != null ? 1 : 0}건)'));

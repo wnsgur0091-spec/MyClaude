@@ -6,6 +6,8 @@ import '../../../theme/app_theme.dart';
 
 /// 오늘 남은 일정이 없을 때 보여주는 근처 축제/행사 추천 목록.
 /// 탭하면 네이버 지도에서 그 장소를 보여준다.
+/// 오늘 남은 일정이 없을 때 보여주는 근처 축제/행사 추천 목록.
+/// 탭하면 그 행사/축제에 대한 정보를 검색해서 관련 웹 페이지를 보여준다.
 class NearbyEventsCard extends StatelessWidget {
   const NearbyEventsCard({super.key, required this.events});
 
@@ -33,7 +35,7 @@ class _NearbyEventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () => _openInMap(context),
+      onTap: () => _openWebPage(context),
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -83,16 +85,15 @@ class _NearbyEventTile extends StatelessWidget {
     );
   }
 
-  Future<void> _openInMap(BuildContext context) async {
-    final uri = Uri(
-      scheme: 'nmap',
-      host: 'search',
-      queryParameters: {'query': event.title, 'appname': 'com.letsgo2.todayguide'},
-    );
+  /// 행사/축제 이름으로 검색해서 관련 웹 페이지(공식 홈페이지, 뉴스, 블로그 등)를
+  /// 보여준다. 네이버 지도로 위치만 보여주던 것 대신, 실제로 어떤 행사인지
+  /// 알아볼 수 있게 하기 위함이다.
+  Future<void> _openWebPage(BuildContext context) async {
+    final uri = Uri.https('search.naver.com', '/search.naver', {'query': event.title});
     final opened = await ExternalLinkLauncher.openUrl(uri.toString());
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('네이버 지도 앱이 없어서 열지 못했어요.')),
+        const SnackBar(content: Text('웹 페이지를 열 수 없었어요.')),
       );
     }
   }

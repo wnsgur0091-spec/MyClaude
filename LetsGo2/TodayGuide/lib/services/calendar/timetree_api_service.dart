@@ -73,16 +73,26 @@ class TimeTreeApiService implements CalendarService {
     final dayEnd = dayStart.add(const Duration(days: 1));
     final todayEvents = all.where((e) => e.start.isBefore(dayEnd) && e.end.isAfter(dayStart)).toList();
 
+    // nextUpcoming(역할 무관, D+N 미리보기용)과 nextOwnUpcoming(본인/같이만,
+    // 실제 알림 대상)을 한 번의 순회로 함께 찾는다. all이 시작시각 오름차순
+    // 정렬돼 있어서 각각 처음 만나는 조건 일치 일정이 곧 "가장 빠른 것"이다.
     ScheduleEvent? nextUpcoming;
+    ScheduleEvent? nextOwnUpcoming;
     for (final e in all) {
-      if (e.start.isAfter(now) &&
+      if (!e.start.isAfter(now)) continue;
+      nextUpcoming ??= e;
+      if (nextOwnUpcoming == null &&
           (e.attendeeRole == EventAttendeeRole.me || e.attendeeRole == EventAttendeeRole.both)) {
-        nextUpcoming = e;
-        break;
+        nextOwnUpcoming = e;
       }
+      if (nextOwnUpcoming != null) break;
     }
 
-    return CalendarFetchResult(todayEvents: todayEvents, nextUpcomingEvent: nextUpcoming);
+    return CalendarFetchResult(
+      todayEvents: todayEvents,
+      nextUpcomingEvent: nextUpcoming,
+      nextOwnUpcomingEvent: nextOwnUpcoming,
+    );
   }
 
   /// 파싱된 일정 시각이 상식적인 범위(2000~2100년)인지 확인한다.
