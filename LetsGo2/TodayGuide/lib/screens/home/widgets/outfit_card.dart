@@ -84,7 +84,7 @@ class OutfitCard extends StatelessWidget {
                 style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 8),
             SizedBox(
-              height: 74,
+              height: 96,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: hourlyWeather.length,

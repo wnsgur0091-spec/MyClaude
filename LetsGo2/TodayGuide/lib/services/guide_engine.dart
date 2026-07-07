@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../models/event_attendee_role.dart';
 import '../models/nearby_event.dart';
 import '../models/outfit_recommendation.dart';
 import '../models/route_plan.dart';
@@ -156,13 +157,17 @@ class GuideEngine {
     String? todayEmptyNotice;
     if (events.isEmpty) {
       if (hadEventsToday) {
-        // 오늘 일정이 있었지만 다 끝난 상태. 방금 소화한(=가장 늦게 끝난)
-        // 일정 제목을 언급해서 수고했다는 느낌으로 안내한다.
-        final completedToday = fetched.todayEvents.where((e) => !e.end.isAfter(now)).toList()
+        // 오늘 일정이 있었지만 다 끝난 상태. 방금 소화한(=가장 늦게 끝난) 일정
+        // 제목을 언급해서 수고했다는 느낌으로 안내한다. 단, 배우자 단독
+        // 일정(partner)은 이 기기 사용자가 소화한 게 아니므로 제외한다 —
+        // 안 그러면 배우자 일정을 두고 "고생했어요"라고 잘못 말하게 된다.
+        final completedOwnToday = fetched.todayEvents
+            .where((e) => !e.end.isAfter(now) && e.attendeeRole != EventAttendeeRole.partner)
+            .toList()
           ..sort((a, b) => a.end.compareTo(b.end));
-        final lastEvent = completedToday.isNotEmpty ? completedToday.last : null;
-        todayEmptyNotice = lastEvent != null
-            ? '"${lastEvent.title}" 일정을 소화하느라 고생했어요.'
+        final lastOwnEvent = completedOwnToday.isNotEmpty ? completedOwnToday.last : null;
+        todayEmptyNotice = lastOwnEvent != null
+            ? '"${lastOwnEvent.title}" 일정을 소화하느라 고생했어요.'
             : '오늘 남은 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
       } else {
         todayEmptyNotice = '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
