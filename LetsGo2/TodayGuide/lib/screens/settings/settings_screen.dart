@@ -23,7 +23,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _locationService = LocationService();
 
   late Gender _gender;
-  late final TextEditingController _ageController;
   late final TextEditingController _homeAddressController;
   late final TextEditingController _workAddressController;
   double? _homeLat;
@@ -44,7 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final s = widget.settings;
     _gender = s.gender;
-    _ageController = TextEditingController(text: s.age > 0 ? '${s.age}' : '');
     _homeAddressController = TextEditingController(text: s.homeAddress ?? '');
     _workAddressController = TextEditingController(text: s.workAddress ?? '');
     _homeLat = s.homeLat;
@@ -65,7 +63,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _ageController.dispose();
     _homeAddressController.dispose();
     _workAddressController.dispose();
     super.dispose();
@@ -158,13 +155,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onSelected: (_) => setState(() => _gender = g),
                   ))
               .toList(),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _ageController,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(labelText: '나이'),
         ),
       ],
     );
@@ -289,7 +279,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _saving = true);
     final updated = UserSettings(
       gender: _gender,
-      age: int.tryParse(_ageController.text.trim()) ?? widget.settings.age,
       homeAddress: _homeAddressController.text.trim().isEmpty ? null : _homeAddressController.text.trim(),
       homeLat: _homeLat,
       homeLng: _homeLng,

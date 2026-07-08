@@ -50,8 +50,7 @@ class ScheduleTimelineCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 const _OngoingTag(),
               ],
-              if (event.attendeeRole == EventAttendeeRole.partner ||
-                  event.attendeeRole == EventAttendeeRole.both) ...[
+              if (event.attendeeRole != EventAttendeeRole.unknown) ...[
                 const SizedBox(width: 8),
                 _RoleTag(role: event.attendeeRole),
               ],

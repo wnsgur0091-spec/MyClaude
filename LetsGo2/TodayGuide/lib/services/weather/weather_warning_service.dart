@@ -72,12 +72,15 @@ class WeatherWarningService {
 
       // "해제"가 제목에 들어간 항목은 특보가 끝났다는 통보라 제외하고,
       // 나머지 제목만 안내 대상으로 남긴다. 같은 특보의 발표/해제가
-      // 섞여 있을 수 있어 title 기준으로만 최소한으로 걸러낸다.
+      // 섞여 있을 수 있어 title 기준으로만 최소한으로 걸러낸다. 원문 제목은
+      // "[특보] 제07-72호 : 2026.07.07.22:00 / 강풍주의보 발표 (*)"처럼 관보
+      // 형식이라 그대로 보여주면 장황해서, 특보명만 뽑아 단순화한다.
       final titles = recentItems
           .map((item) => item['title'] as String?)
           .whereType<String>()
           .where((title) => !title.contains('해제'))
-          .toSet() // 같은 특보가 여러 번 나오는 경우 중복 제거
+          .map(_simplifyTitle)
+          .toSet() // 단순화 후 같은 특보명이면 중복 제거
           .toList();
 
       await DiagnosticLog.log(
@@ -112,5 +115,13 @@ class WeatherWarningService {
   String _formatDate(DateTime dt) {
     String two(int n) => n.toString().padLeft(2, '0');
     return '${dt.year}${two(dt.month)}${two(dt.day)}';
+  }
+
+  /// "/"와 "발표"/"변경" 사이의 특보명만 뽑아낸다(예: "강풍주의보·풍랑주의보").
+  /// 패턴이 안 맞으면 원문을 그대로 쓴다.
+  static final _titlePattern = RegExp(r'/\s*(.+?)\s*(발표|변경)');
+  String _simplifyTitle(String raw) {
+    final match = _titlePattern.firstMatch(raw);
+    return match?.group(1)?.trim() ?? raw;
   }
 }

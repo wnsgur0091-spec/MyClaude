@@ -58,7 +58,12 @@ class TimeTreeApiService implements CalendarService {
     // 타임스탬프 파싱이 잘못됐거나 TimeTree 쪽 데이터가 이상해서 연도가
     // 터무니없는(예: 서기 5만년대) 일정이 섞여 들어오면, 그걸 "가장 가까운
     // 다음 일정"으로 잘못 고르지 않도록 여기서 걸러낸다.
-    final converted = raw.map(_toScheduleEvent).where(_isSane).toList();
+    final dayStart = DateTime(now.year, now.month, now.day);
+    // TimeTree sync API는 페이지네이션 커서가 시간순이 아니라서 요청 단계에서
+    // 기간을 제한할 수 없다(전체를 받아와야 함). 대신 오늘 이전에 완전히
+    // 끝난 과거 일정은 이후 계산(dedup/정렬/다음 일정 탐색)에서 전혀 쓰이지
+    // 않으므로, 파싱 직후에 걸러내서 뒤쪽 처리량을 줄인다.
+    final converted = raw.map(_toScheduleEvent).where(_isSane).where((e) => e.end.isAfter(dayStart)).toList();
 
     // TimeTree의 sync API가 같은 일정을 두 번 내려주는 경우(페이지네이션
     // 겹침, 반복 일정의 원본+수정 인스턴스가 같이 오는 경우 등)가 있어서,
@@ -70,7 +75,6 @@ class TimeTreeApiService implements CalendarService {
     }
     final all = dedup.values.toList()..sort((a, b) => a.start.compareTo(b.start));
 
-    final dayStart = DateTime(now.year, now.month, now.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
     final todayEvents = all.where((e) => e.start.isBefore(dayEnd) && e.end.isAfter(dayStart)).toList();
 

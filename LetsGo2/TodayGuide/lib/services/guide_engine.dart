@@ -278,8 +278,9 @@ class GuideEngine {
     );
   }
 
-  /// 날씨/옷차림/다음 일정 계산이 끝난 결과를 자연스러운 한 문단 인사말로
-  /// 요약한다. Claude API 등 LLM 호출 없이 순수 문자열 템플릿으로 조합한다.
+  /// 날씨/옷차림/다음 일정 계산이 끝난 결과를 짧게 요약한 한두 문장짜리
+  /// 인사말을 만든다. Claude API 등 LLM 호출 없이 순수 문자열 템플릿으로
+  /// 조합한다. 화면 맨 위에 강조해서 보여주는 자리라 최대한 간결하게 유지한다.
   String _buildBriefing({
     required DateTime now,
     required List<String> weatherWarnings,
@@ -291,25 +292,22 @@ class GuideEngine {
     final buffer = StringBuffer(_greetingFor(now));
 
     if (weatherWarnings.isNotEmpty) {
-      buffer.write(' 지금 ${weatherWarnings.first}가 발효 중이니 외출 시 조심하세요.');
+      buffer.write(' ${weatherWarnings.first} 발효 중.');
     }
 
     // 오늘 일정이 없으면 옷차림을 안내할 이유가 없다("오늘의 옷차림" 카드도
     // 이때는 화면에 아예 안 보여준다 — 그 화면 상태와 맞춘다).
     if (hasEventsToday) {
-      buffer.write(' ${outfit.reason}');
-      if (outfit.items.isNotEmpty) {
-        buffer.write(' ${outfit.items.join(', ')} 챙기시고,');
-      }
-      buffer.write(' ${outfit.top} · ${outfit.bottom} · ${outfit.shoes} 조합 추천드려요.');
+      final items = outfit.items.isEmpty ? '' : '${outfit.items.join('·')}, ';
+      buffer.write(' 오늘은 $items${outfit.top}·${outfit.bottom}·${outfit.shoes} 추천해요.');
     }
 
     if (nextEvent != null) {
-      buffer.write(' 다음 일정은 "${nextEvent.title}"이고, ${_formatMoment(nextEvent.start)}에 시작해요.');
+      buffer.write(' 다음 일정 "${nextEvent.title}" ${_formatMoment(nextEvent.start)}.');
     } else if (hasNearbyEvents) {
-      buffer.write(' 오늘 남은 일정은 없지만, 근처에 가볼 만한 축제/행사를 아래에 찾아봤어요.');
+      buffer.write(' 근처 볼거리 찾아봤어요.');
     } else {
-      buffer.write(' 오늘 남은 일정은 없어요. 편안한 하루 보내세요.');
+      buffer.write(' 오늘 남은 일정 없어요.');
     }
 
     return buffer.toString();

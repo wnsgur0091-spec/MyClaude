@@ -43,7 +43,7 @@ class OutfitRules {
       bottom: clothing.bottom,
       shoes: clothing.shoes,
       items: items,
-      reason: '오늘 일정 시간대 기온 ${minTemp.round()}~${maxTemp.round()}℃ 기준 추천이에요.',
+      reason: '오늘 일정 시간대 평균 기온 ${representative.round()}℃ 기준 추천이에요.',
     );
   }
 

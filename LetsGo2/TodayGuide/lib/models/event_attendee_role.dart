@@ -29,7 +29,7 @@ enum EventAttendeeRole {
   String get label {
     switch (this) {
       case EventAttendeeRole.me:
-        return '본인';
+        return '나';
       case EventAttendeeRole.partner:
         return '배우자';
       case EventAttendeeRole.both:

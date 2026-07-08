@@ -26,7 +26,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   final _locationService = LocationService();
 
-  final _ageController = TextEditingController();
   final _homeAddressController = TextEditingController();
   final _workAddressController = TextEditingController();
 
@@ -51,7 +50,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _ageController.dispose();
     _homeAddressController.dispose();
     _workAddressController.dispose();
     super.dispose();
@@ -61,10 +59,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     switch (_stepIndex) {
       case 0:
         return _notice1Ack && _notice2Ack;
-      case 1:
-        return _ageController.text.trim().isNotEmpty;
       case 2:
-        return _homeAddressController.text.trim().isNotEmpty || _workAddressController.text.trim().isNotEmpty;
+        return _workAddressController.text.trim().isNotEmpty;
       case 3:
         return _timeTreeCalendarId != null;
       default:
@@ -193,16 +189,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             );
           }).toList(),
         ),
-        const SizedBox(height: 24),
-        const Text('나이', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _ageController,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: AppColors.textPrimary),
-          decoration: const InputDecoration(hintText: '예: 29'),
-          onChanged: (_) => setState(() {}),
-        ),
       ],
     );
   }
@@ -210,10 +196,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildAddressStep() {
     return _stepScaffold(
       title: '기본 출발지',
-      subtitle: 'GPS로 현재 위치를 가져오지 못할 때 대신 사용할 주소예요. 최소 한 곳은 입력해주세요.',
+      subtitle: 'GPS로 현재 위치를 가져오지 못할 때 대신 사용할 주소예요. 회사 주소는 필수, 집 주소는 선택이에요.',
       children: [
         _addressField(
-          label: '집 주소',
+          label: '집 주소 (선택)',
           controller: _homeAddressController,
           onResolved: (lat, lng) => setState(() {
             _homeLat = lat;
@@ -222,7 +208,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 16),
         _addressField(
-          label: '회사 주소 (선택)',
+          label: '회사 주소',
           controller: _workAddressController,
           onResolved: (lat, lng) => setState(() {
             _workLat = lat;
@@ -345,7 +331,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => _saving = true);
     final settings = UserSettings(
       gender: _gender,
-      age: int.tryParse(_ageController.text.trim()) ?? 0,
       homeAddress: _homeAddressController.text.trim().isEmpty ? null : _homeAddressController.text.trim(),
       homeLat: _homeLat,
       homeLng: _homeLng,

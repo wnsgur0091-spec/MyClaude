@@ -303,13 +303,6 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         _buildHeader(result),
         const SizedBox(height: 16),
         _BriefingCard(text: result.briefing),
-        if (result.weatherWarnings.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          ...result.weatherWarnings.map((w) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _WeatherWarningBanner(text: w),
-              )),
-        ],
         if (result.alarmNotice != null) ...[
           const SizedBox(height: 16),
           _AlarmBanner(text: result.alarmNotice!),
@@ -324,6 +317,13 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         ],
         const SizedBox(height: 20),
         if (showUpcomingTab) ..._buildUpcomingTabContent(result) else ..._buildTodayTabContent(result),
+        if (result.weatherWarnings.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          ...result.weatherWarnings.map((w) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _WeatherWarningBanner(text: w),
+              )),
+        ],
         if (result.notices.isNotEmpty) ...[
           const SizedBox(height: 20),
           ...result.notices.map((n) => Padding(
@@ -366,12 +366,6 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
     }
 
     return [
-      OutfitCard(
-        outfit: result.outfit,
-        referenceEvent: result.outfitEvent,
-        hourlyWeather: result.outfitHourlyWeather,
-      ),
-      const SizedBox(height: 24),
       const Text('오늘의 동선',
           style:
               TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
@@ -384,6 +378,12 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
               onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
             ),
           )),
+      const SizedBox(height: 24),
+      OutfitCard(
+        outfit: result.outfit,
+        referenceEvent: result.outfitEvent,
+        hourlyWeather: result.outfitHourlyWeather,
+      ),
     ];
   }
 
@@ -391,14 +391,6 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   /// 동선/옷차림 전체(역할 무관)를 "오늘"과 완전히 분리된 탭으로 보여준다.
   List<Widget> _buildUpcomingTabContent(TodayGuideResult result) {
     return [
-      if (result.upcomingOutfit != null) ...[
-        OutfitCard(
-          title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
-          outfit: result.upcomingOutfit!,
-          hourlyWeather: result.upcomingOutfitHourlyWeather,
-        ),
-        const SizedBox(height: 24),
-      ],
       Text('D+${result.upcomingDayOffset}일 후의 동선',
           style: const TextStyle(
               color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
@@ -411,6 +403,14 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
               onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
             ),
           )),
+      if (result.upcomingOutfit != null) ...[
+        const SizedBox(height: 24),
+        OutfitCard(
+          title: 'D+${result.upcomingDayOffset}일 후의 옷차림',
+          outfit: result.upcomingOutfit!,
+          hourlyWeather: result.upcomingOutfitHourlyWeather,
+        ),
+      ],
     ];
   }
 

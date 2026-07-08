@@ -24,7 +24,6 @@ enum Gender {
 /// 초기 셋팅값 + 앱 전역 설정
 class UserSettings {
   final Gender gender;
-  final int age;
 
   /// GPS 실패 시 폴백으로 쓰는 기본 출발지. 최소 하나는 채워져 있어야 한다.
   final String? homeAddress;
@@ -50,7 +49,6 @@ class UserSettings {
 
   const UserSettings({
     this.gender = Gender.other,
-    this.age = 0,
     this.homeAddress,
     this.homeLat,
     this.homeLng,
@@ -70,7 +68,6 @@ class UserSettings {
 
   UserSettings copyWith({
     Gender? gender,
-    int? age,
     String? homeAddress,
     double? homeLat,
     double? homeLng,
@@ -85,7 +82,6 @@ class UserSettings {
   }) {
     return UserSettings(
       gender: gender ?? this.gender,
-      age: age ?? this.age,
       homeAddress: homeAddress ?? this.homeAddress,
       homeLat: homeLat ?? this.homeLat,
       homeLng: homeLng ?? this.homeLng,
@@ -102,7 +98,6 @@ class UserSettings {
 
   Map<String, dynamic> toJson() => {
         'gender': gender.name,
-        'age': age,
         'homeAddress': homeAddress,
         'homeLat': homeLat,
         'homeLng': homeLng,
@@ -118,7 +113,6 @@ class UserSettings {
 
   factory UserSettings.fromJson(Map<String, dynamic> json) => UserSettings(
         gender: Gender.fromName(json['gender'] as String? ?? 'other'),
-        age: json['age'] as int? ?? 0,
         homeAddress: json['homeAddress'] as String?,
         homeLat: (json['homeLat'] as num?)?.toDouble(),
         homeLng: (json['homeLng'] as num?)?.toDouble(),
