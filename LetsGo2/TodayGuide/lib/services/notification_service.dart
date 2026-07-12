@@ -108,6 +108,40 @@ class NotificationService {
     }
   }
 
+  static const _testNotificationId = 3001;
+
+  /// 매일 아침 알림과 완전히 같은 경로(zonedSchedule +
+  /// exactAllowWhileIdle)로 1분 뒤 알림을 예약한다. 아침까지 기다리지 않고
+  /// 화면을 끈 채로 1분만 기다려도 백그라운드 알림 전달이 실제로 되는지
+  /// 바로 확인할 수 있다.
+  Future<void> sendTestNotification() async {
+    final fireAt = tz.TZDateTime.now(tz.local).add(const Duration(seconds: 60));
+    try {
+      await _plugin.zonedSchedule(
+        _testNotificationId,
+        '테스트 알림',
+        '이 알림이 보이면 백그라운드 알림이 정상 동작하는 거예요.',
+        fireAt,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _dailyGreetingChannelId,
+            _dailyGreetingChannelName,
+            channelDescription: '매일 아침 7시에 오늘의 지침서 확인을 알려줍니다.',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        payload: tapPayload,
+      );
+      await DiagnosticLog.log('테스트 알림 예약: 1분 후($fireAt)');
+    } catch (e) {
+      await DiagnosticLog.log('테스트 알림 예약 실패: $e');
+      rethrow;
+    }
+  }
+
   /// 조회된 일정을 기준으로, 각 일정 시작 3시간 전에 출발 준비 알림을
   /// 예약한다. 본인 일정과 같이 하는 일정만 알림을 보내고, 배우자 단독
   /// 일정 및 역할 미지정 일정은 제외한다. 이미 3시간 전 시점이 지난

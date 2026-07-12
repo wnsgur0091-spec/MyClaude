@@ -10,10 +10,14 @@ import '../../widgets/timetree_connect_section.dart';
 import 'diagnostic_log_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.settings, required this.onSave});
+  const SettingsScreen({super.key, required this.settings, required this.onSave, this.onSendTestNotification});
 
   final UserSettings settings;
   final Future<void> Function(UserSettings settings) onSave;
+
+  /// 1분 뒤 테스트 알림을 예약한다(설정 화면이 알림 서비스를 직접 만들지
+  /// 않고 앱 전역에서 이미 초기화된 인스턴스를 재사용하도록 콜백으로 받음).
+  final Future<void> Function()? onSendTestNotification;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -113,6 +117,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 24),
                     _sectionTitle('알림 안정성'),
                     _batteryOptimizationTile(),
+                    if (widget.onSendTestNotification != null) ...[
+                      const SizedBox(height: 12),
+                      _testNotificationTile(),
+                    ],
                     const SizedBox(height: 24),
                     _sectionTitle('문제 해결'),
                     _diagnosticLogTile(),
@@ -255,6 +263,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (mounted) _loadBatteryOptimizationState();
         },
         child: const Text('요청'),
+      ),
+    );
+  }
+
+  Widget _testNotificationTile() {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.notifications_active_outlined, color: AppColors.textSecondary),
+      title: const Text('지금 테스트 알림 보내기', style: TextStyle(color: AppColors.textPrimary)),
+      subtitle: const Text(
+        '1분 뒤에 알림을 보내요. 화면을 끄고 1분 기다려서 알림이 뜨는지 확인해보세요. '
+        '아침 인사말 알림과 똑같은 방식으로 예약돼서, 매일 7시 알림이 왜 안 뜨는지 지금 바로 확인할 수 있어요.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+      ),
+      trailing: OutlinedButton(
+        onPressed: () async {
+          try {
+            await widget.onSendTestNotification!();
+            if (mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('1분 뒤 테스트 알림이 예약됐어요. 화면을 꺼두고 기다려보세요.')));
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('예약 실패: $e')));
+            }
+          }
+        },
+        child: const Text('보내기'),
       ),
     );
   }

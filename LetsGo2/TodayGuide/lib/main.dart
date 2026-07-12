@@ -87,7 +87,11 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
   void _openSettings() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
-        builder: (_) => SettingsScreen(settings: _settings, onSave: _handleSettingsSaved),
+        builder: (_) => SettingsScreen(
+          settings: _settings,
+          onSave: _handleSettingsSaved,
+          onSendTestNotification: _notificationService?.sendTestNotification,
+        ),
       ),
     );
   }
