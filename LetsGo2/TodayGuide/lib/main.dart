@@ -90,7 +90,6 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
         builder: (_) => SettingsScreen(
           settings: _settings,
           onSave: _handleSettingsSaved,
-          onSendTestNotification: _notificationService?.sendTestNotification,
         ),
       ),
     );
