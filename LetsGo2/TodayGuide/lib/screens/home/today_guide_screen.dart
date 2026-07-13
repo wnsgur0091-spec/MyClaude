@@ -347,44 +347,47 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
 
   /// "오늘" 탭 내용. 오늘 남은 일정이 없으면 옷차림/동선 카드는 아예 보여주지
   /// 않고 안내 문구 하나만 보여준다(다음 일정이 있으면 별도 탭에서 확인).
+  /// 근처 볼거리는 휴가/주말 여부로만 결정되므로(guide_engine 참고) 일정
+  /// 유무와 무관하게 독립적으로 덧붙인다.
   List<Widget> _buildTodayTabContent(TodayGuideResult result) {
-    if (result.eventGuides.isEmpty) {
-      return [
-        _NoticeStrip(text: result.todayEmptyNotice ?? '오늘 등록된 일정이 없어요.'),
-        if (result.nearbyEvents.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          const Text('오늘 근처 볼거리',
-              style: TextStyle(
-                  color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 4),
-          const Text('오늘 남은 일정이 없어서, 현재 위치 반경 20km 안의 축제/행사를 찾아봤어요.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          const SizedBox(height: 12),
-          NearbyEventsCard(events: result.nearbyEvents),
-        ],
-      ];
+    final content = result.eventGuides.isEmpty
+        ? [_NoticeStrip(text: result.todayEmptyNotice ?? '오늘 등록된 일정이 없어요.')]
+        : [
+            const Text('오늘의 동선',
+                style: TextStyle(
+                    color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const SizedBox(height: 12),
+            ...result.eventGuides.map((g) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ScheduleTimelineCard(
+                    guide: g,
+                    now: result.generatedAt,
+                    onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
+                  ),
+                )),
+            const SizedBox(height: 24),
+            OutfitCard(
+              outfit: result.outfit,
+              referenceEvent: result.outfitEvent,
+              hourlyWeather: result.outfitHourlyWeather,
+            ),
+          ];
+
+    if (result.nearbyEvents.isNotEmpty) {
+      content.addAll([
+        const SizedBox(height: 24),
+        const Text('오늘 근처 볼거리',
+            style:
+                TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        const SizedBox(height: 4),
+        const Text('휴가/주말이라 현재 위치 반경 20km 안의 축제/행사를 찾아봤어요.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        const SizedBox(height: 12),
+        NearbyEventsCard(events: result.nearbyEvents),
+      ]);
     }
 
-    return [
-      const Text('오늘의 동선',
-          style:
-              TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-      const SizedBox(height: 12),
-      ...result.eventGuides.map((g) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: ScheduleTimelineCard(
-              guide: g,
-              now: result.generatedAt,
-              onAddLocation: g.missingLocation ? () => _addLocationFor(g.event) : null,
-            ),
-          )),
-      const SizedBox(height: 24),
-      OutfitCard(
-        outfit: result.outfit,
-        referenceEvent: result.outfitEvent,
-        hourlyWeather: result.outfitHourlyWeather,
-      ),
-    ];
+    return content;
   }
 
   /// "D+N일 후" 탭 내용. 오늘 일정이 없을 때 대신 계산해둔 다음 일정 날짜의

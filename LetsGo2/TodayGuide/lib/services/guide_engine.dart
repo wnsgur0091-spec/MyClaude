@@ -45,6 +45,10 @@ class GuideEngine {
         nearbyEventService = nearbyEventService ?? NearbyEventService(),
         locationOverrideRepository = locationOverrideRepository ?? EventLocationOverrideRepository();
 
+  /// 일정 없는 평일에 기본으로 채워 넣는 "출근" 일정의 id. 실제 캘린더
+  /// 일정이 아니므로 3시간 전 알림 대상에서 제외할 때 이 id로 걸러낸다.
+  static const _defaultCommuteEventId = '__default_commute__';
+
   final LocationService locationService;
   final KmaWeatherService weatherService;
   final NaverDrivingRouteService drivingRouteService;
@@ -102,15 +106,34 @@ class GuideEngine {
     final currentLocation = await locationFuture;
     unawaited(DiagnosticLog.log('  위치 확인 완료 (${stageWatch.elapsedMilliseconds}ms, fallback=${currentLocation.isFallback})'));
 
-    final hadEventsToday = fetched.todayEvents.isNotEmpty;
+    // 평일에 등록된 일정이 하나도 없으면 "출근"(09~18시, 회사 주소)을 기본
+    // 일정으로 채운다. 회사 주소가 없으면(설정 안 했으면) 채우지 않는다.
+    // 실제 캘린더 일정이 아니라 이 기기 관점의 기본값이므로 알림 대상에서는
+    // 제외한다(아래 onEventsFetched 호출에서 걸러냄).
+    final isWeekday = now.weekday >= DateTime.monday && now.weekday <= DateTime.friday;
+    final workAddress = settings.workAddress?.trim();
+    final defaultCommuteEvent = (isWeekday && fetched.todayEvents.isEmpty && workAddress != null && workAddress.isNotEmpty)
+        ? ScheduleEvent(
+            id: _defaultCommuteEventId,
+            title: '출근',
+            start: DateTime(now.year, now.month, now.day, 9),
+            end: DateTime(now.year, now.month, now.day, 18),
+            location: workAddress,
+            attendeeRole: EventAttendeeRole.me,
+          )
+        : null;
+    final todayEventsEffective =
+        defaultCommuteEvent == null ? fetched.todayEvents : [defaultCommuteEvent];
+
+    final hadEventsToday = todayEventsEffective.isNotEmpty;
     // 앱을 연 시점 기준으로 이미 끝난 일정은 이동경로를 계산할 이유가 없고
     // 화면에도 보여줄 필요가 없으므로 여기서 걸러낸다.
-    final events = fetched.todayEvents.where((e) => e.end.isAfter(now)).toList();
+    final events = todayEventsEffective.where((e) => e.end.isAfter(now)).toList();
     final nextEvent = fetched.nextUpcomingEvent;
     final nextEventAlreadyToday = nextEvent != null && events.any((e) => e.id == nextEvent.id);
 
     await onEventsFetched?.call([
-      ...events,
+      ...events.where((e) => e.id != _defaultCommuteEventId),
       if (nextEvent != null && !nextEventAlreadyToday) nextEvent,
     ]);
 
@@ -161,7 +184,7 @@ class GuideEngine {
         // 제목을 언급해서 수고했다는 느낌으로 안내한다. 단, 배우자 단독
         // 일정(partner)은 이 기기 사용자가 소화한 게 아니므로 제외한다 —
         // 안 그러면 배우자 일정을 두고 "고생했어요"라고 잘못 말하게 된다.
-        final completedOwnToday = fetched.todayEvents
+        final completedOwnToday = todayEventsEffective
             .where((e) => !e.end.isAfter(now) && e.attendeeRole != EventAttendeeRole.partner)
             .toList()
           ..sort((a, b) => a.end.compareTo(b.end));
@@ -172,16 +195,18 @@ class GuideEngine {
       } else {
         todayEmptyNotice = '오늘 등록된 일정이 없어요. 외출 시 현재 날씨를 참고해주세요.';
       }
+    }
 
-      // 오늘 남은 일정이 없으면 현재 위치 근처(반경 20km) 축제/행사를
-      // 추천해준다. 다만 하루를 시작하는 낮 12시 이전에만 보여준다 — 오후에
-      // 뜬금없이 "오늘 볼거리 추천"이 뜨는 건 맥락에 안 맞아서다.
-      if (now.hour < 12) {
-        nearbyEvents = await _safeCall(
-              () => nearbyEventService.fetchNearbyFestivals(lat: currentLocation.lat, lng: currentLocation.lng),
-            ) ??
-            const [];
-      }
+    // 근처 볼거리는 휴가 일정이 있는 날이거나 주말에만 추천한다(평일은
+    // 출근/실제 일정이 있는 날이라 맥락에 안 맞음). 하루를 시작하는 낮 12시
+    // 이전에만 보여준다 — 오후에 뜬금없이 뜨는 건 맥락에 안 맞아서다.
+    final isWeekend = now.weekday == DateTime.saturday || now.weekday == DateTime.sunday;
+    final isVacationDay = fetched.todayEvents.any((e) => e.title.contains('휴가'));
+    if ((isWeekend || isVacationDay) && now.hour < 12) {
+      nearbyEvents = await _safeCall(
+            () => nearbyEventService.fetchNearbyFestivals(lat: currentLocation.lat, lng: currentLocation.lng),
+          ) ??
+          const [];
     }
 
     // 오늘 일정이 없어서 대신 계산한 "다음 일정이 있는 날"(미래 날짜)의 일정
@@ -233,7 +258,8 @@ class GuideEngine {
     // 최대 12시간까지만 보여줘서 종일 일정처럼 구간이 긴 경우에도 표가 너무
     // 길어지지 않게 한다.
     const maxHourlyRows = 12;
-    final outfitReferenceEvent = nextEventAlreadyToday ? nextEvent : null;
+    final outfitReferenceEvent =
+        events.isEmpty ? null : (nextEventAlreadyToday ? nextEvent : events.first);
     final outfitHourly = outfitReferenceEvent == null
         ? const <WeatherSnapshot>[]
         : weatherService.hourlyBreakdown(forecast, outfitReferenceEvent.start, outfitReferenceEvent.end,
