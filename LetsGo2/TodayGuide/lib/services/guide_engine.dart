@@ -49,6 +49,9 @@ class GuideEngine {
   /// 일정이 아니므로 3시간 전 알림 대상에서 제외할 때 이 id로 걸러낸다.
   static const _defaultCommuteEventId = '__default_commute__';
 
+  /// 같은 이유로 배우자 몫 기본 "출근" 일정에 쓰는 id.
+  static const _defaultPartnerCommuteEventId = '__default_partner_commute__';
+
   final LocationService locationService;
   final KmaWeatherService weatherService;
   final NaverDrivingRouteService drivingRouteService;
@@ -106,24 +109,33 @@ class GuideEngine {
     final currentLocation = await locationFuture;
     unawaited(DiagnosticLog.log('  위치 확인 완료 (${stageWatch.elapsedMilliseconds}ms, fallback=${currentLocation.isFallback})'));
 
-    // 평일에 등록된 일정이 하나도 없으면 "출근"(09~18시, 회사 주소)을 기본
-    // 일정으로 채운다. 회사 주소가 없으면(설정 안 했으면) 채우지 않는다.
-    // 실제 캘린더 일정이 아니라 이 기기 관점의 기본값이므로 알림 대상에서는
-    // 제외한다(아래 onEventsFetched 호출에서 걸러냄).
+    // 평일에 등록된 일정이 하나도 없으면 "출근"(09~18시, 회사 주소)을 나와
+    // 배우자 몫 각각 기본 일정으로 채운다. 각자 회사 주소가 없으면(설정 안
+    // 했으면) 그 사람 몫은 채우지 않는다. 실제 캘린더 일정이 아니라 이 기기
+    // 관점의 기본값이므로 알림 대상에서는 제외한다(아래 onEventsFetched
+    // 호출에서 걸러냄).
     final isWeekday = now.weekday >= DateTime.monday && now.weekday <= DateTime.friday;
-    final workAddress = settings.workAddress?.trim();
-    final defaultCommuteEvent = (isWeekday && fetched.todayEvents.isEmpty && workAddress != null && workAddress.isNotEmpty)
-        ? ScheduleEvent(
-            id: _defaultCommuteEventId,
-            title: '출근',
-            start: DateTime(now.year, now.month, now.day, 9),
-            end: DateTime(now.year, now.month, now.day, 18),
-            location: workAddress,
-            attendeeRole: EventAttendeeRole.me,
-          )
-        : null;
-    final todayEventsEffective =
-        defaultCommuteEvent == null ? fetched.todayEvents : [defaultCommuteEvent];
+    final shouldFillDefaultCommute = isWeekday && fetched.todayEvents.isEmpty;
+    ScheduleEvent? buildDefaultCommute(String id, String? address, EventAttendeeRole role) {
+      final trimmed = address?.trim();
+      if (!shouldFillDefaultCommute || trimmed == null || trimmed.isEmpty) return null;
+      return ScheduleEvent(
+        id: id,
+        title: role == EventAttendeeRole.partner ? '배우자 출근' : '출근',
+        start: DateTime(now.year, now.month, now.day, 9),
+        end: DateTime(now.year, now.month, now.day, 18),
+        location: trimmed,
+        attendeeRole: role,
+      );
+    }
+
+    final defaultCommuteEvent =
+        buildDefaultCommute(_defaultCommuteEventId, settings.workAddress, EventAttendeeRole.me);
+    final defaultPartnerCommuteEvent = buildDefaultCommute(
+        _defaultPartnerCommuteEventId, settings.partnerWorkAddress, EventAttendeeRole.partner);
+    final todayEventsEffective = defaultCommuteEvent == null && defaultPartnerCommuteEvent == null
+        ? fetched.todayEvents
+        : [if (defaultCommuteEvent != null) defaultCommuteEvent, if (defaultPartnerCommuteEvent != null) defaultPartnerCommuteEvent];
 
     final hadEventsToday = todayEventsEffective.isNotEmpty;
     // 앱을 연 시점 기준으로 이미 끝난 일정은 이동경로를 계산할 이유가 없고
@@ -133,7 +145,7 @@ class GuideEngine {
     final nextEventAlreadyToday = nextEvent != null && events.any((e) => e.id == nextEvent.id);
 
     await onEventsFetched?.call([
-      ...events.where((e) => e.id != _defaultCommuteEventId),
+      ...events.where((e) => e.id != _defaultCommuteEventId && e.id != _defaultPartnerCommuteEventId),
       if (nextEvent != null && !nextEventAlreadyToday) nextEvent,
     ]);
 

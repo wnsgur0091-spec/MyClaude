@@ -25,10 +25,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Gender _gender;
   late final TextEditingController _homeAddressController;
   late final TextEditingController _workAddressController;
+  late final TextEditingController _partnerWorkAddressController;
   double? _homeLat;
   double? _homeLng;
   double? _workLat;
   double? _workLng;
+  double? _partnerWorkLat;
+  double? _partnerWorkLng;
   bool _saving = false;
 
   String? _timeTreeCalendarId;
@@ -45,10 +48,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _gender = s.gender;
     _homeAddressController = TextEditingController(text: s.homeAddress ?? '');
     _workAddressController = TextEditingController(text: s.workAddress ?? '');
+    _partnerWorkAddressController = TextEditingController(text: s.partnerWorkAddress ?? '');
     _homeLat = s.homeLat;
     _homeLng = s.homeLng;
     _workLat = s.workLat;
     _workLng = s.workLng;
+    _partnerWorkLat = s.partnerWorkLat;
+    _partnerWorkLng = s.partnerWorkLng;
     _timeTreeCalendarId = s.timeTreeCalendarId;
     _timeTreeCalendarName = s.timeTreeCalendarName;
     _timeTreeLabelRoles = Map.of(s.timeTreeLabelRoles);
@@ -65,6 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void dispose() {
     _homeAddressController.dispose();
     _workAddressController.dispose();
+    _partnerWorkAddressController.dispose();
     super.dispose();
   }
 
@@ -102,6 +109,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onResolved: (lat, lng) => setState(() {
                         _workLat = lat;
                         _workLng = lng;
+                      }),
+                    ),
+                    const SizedBox(height: 24),
+                    _sectionTitle('배우자 회사 주소'),
+                    Text(
+                      '공유 캘린더에 둘 다 오늘 일정이 없는 평일에, 배우자 몫 "출근" 기본 '
+                      '일정도 함께 보여주기 위한 값이에요. 선택 입력이고, 배우자 기기가 아니라 '
+                      '이 기기에도 별도로 입력해야 반영돼요.',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    _addressField(
+                      label: '배우자 회사 주소 (선택)',
+                      controller: _partnerWorkAddressController,
+                      onResolved: (lat, lng) => setState(() {
+                        _partnerWorkLat = lat;
+                        _partnerWorkLng = lng;
                       }),
                     ),
                     const SizedBox(height: 24),
@@ -285,6 +309,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       workAddress: _workAddressController.text.trim().isEmpty ? null : _workAddressController.text.trim(),
       workLat: _workLat,
       workLng: _workLng,
+      partnerWorkAddress:
+          _partnerWorkAddressController.text.trim().isEmpty ? null : _partnerWorkAddressController.text.trim(),
+      partnerWorkLat: _partnerWorkLat,
+      partnerWorkLng: _partnerWorkLng,
       timeTreeCalendarId: _timeTreeCalendarId,
       timeTreeCalendarName: _timeTreeCalendarName,
       timeTreeLabelRoles: _timeTreeLabelRoles,

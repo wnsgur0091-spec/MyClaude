@@ -34,6 +34,12 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
   late UserSettings _settings = widget.initialSettings;
   NotificationService? _notificationService;
 
+  /// 알림을 탭할 때마다 값을 바꿔서 TodayGuideScreen에 "지금 새로고침해라"고
+  /// 신호를 보낸다. 앱이 이미 떠 있는 상태(warm)에서 알림을 탭하면
+  /// TodayGuideScreen이 새로 생성되지 않아 initState가 다시 불리지 않기
+  /// 때문에, 화면 전환만으로는 그 시점의 위치/일정으로 재계산되지 않는다.
+  final _refreshSignal = ValueNotifier<int>(0);
+
   @override
   void initState() {
     super.initState();
@@ -54,9 +60,12 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
   Future<void> _initNotifications() async {
     final service = await NotificationService.create(
       onNotificationTap: (payload) {
-        // 알림을 탭한 시점에 홈 화면으로 돌아가면, TodayGuideScreen이 그 시점의
-        // 현재 위치를 기준으로 지침을 새로 계산한다(트리거 시점 계산 회피 설계).
+        // 알림을 탭한 시점에 홈 화면으로 돌아가고, 그 시점의 현재 위치/일정
+        // 기준으로 다시 계산하도록 새로고침 신호를 보낸다(트리거 시점 계산
+        // 회피 설계). popUntil만으로는 앱이 이미 떠 있을 때(warm) 화면이
+        // 재생성되지 않아 새로고침이 안 되므로 신호를 따로 보내야 한다.
         _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        _refreshSignal.value++;
       },
     );
     await service.requestPermission();
@@ -84,6 +93,12 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
     if (mounted) setState(() => _settings = const UserSettings());
   }
 
+  @override
+  void dispose() {
+    _refreshSignal.dispose();
+    super.dispose();
+  }
+
   void _openSettings() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute(
@@ -108,6 +123,7 @@ class _TodayGuideAppState extends State<TodayGuideApp> {
               onOpenSettings: _openSettings,
               onEventsFetched: (events) => _notificationService?.scheduleEventReminders(events) ?? Future.value(),
               onResetApp: _resetApp,
+              refreshSignal: _refreshSignal,
             )
           : OnboardingScreen(onComplete: _handleOnboardingComplete),
     );

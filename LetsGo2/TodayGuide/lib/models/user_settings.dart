@@ -33,6 +33,13 @@ class UserSettings {
   final double? workLat;
   final double? workLng;
 
+  /// 배우자의 회사 주소. 공유 캘린더에 둘 다 일정이 없는 평일에 배우자 몫
+  /// "출근" 기본 일정을 함께 채워 보여주기 위해, 배우자 기기와 별도로
+  /// 이 기기에도 저장해둔다(설정끼리 동기화되지 않아서 각자 입력이 필요함).
+  final String? partnerWorkAddress;
+  final double? partnerWorkLat;
+  final double? partnerWorkLng;
+
   /// 연동된 TimeTree 캘린더 id/이름(표시용). 로그인 자격증명은 별도로
   /// 기기에 암호화 저장하고(TimeTreeCredentialStore) 여기엔 담지 않는다.
   final String? timeTreeCalendarId;
@@ -55,6 +62,9 @@ class UserSettings {
     this.workAddress,
     this.workLat,
     this.workLng,
+    this.partnerWorkAddress,
+    this.partnerWorkLat,
+    this.partnerWorkLng,
     this.timeTreeCalendarId,
     this.timeTreeCalendarName,
     this.timeTreeLabelRoles = const {},
@@ -74,6 +84,9 @@ class UserSettings {
     String? workAddress,
     double? workLat,
     double? workLng,
+    String? partnerWorkAddress,
+    double? partnerWorkLat,
+    double? partnerWorkLng,
     String? timeTreeCalendarId,
     String? timeTreeCalendarName,
     Map<int, EventAttendeeRole>? timeTreeLabelRoles,
@@ -88,6 +101,9 @@ class UserSettings {
       workAddress: workAddress ?? this.workAddress,
       workLat: workLat ?? this.workLat,
       workLng: workLng ?? this.workLng,
+      partnerWorkAddress: partnerWorkAddress ?? this.partnerWorkAddress,
+      partnerWorkLat: partnerWorkLat ?? this.partnerWorkLat,
+      partnerWorkLng: partnerWorkLng ?? this.partnerWorkLng,
       timeTreeCalendarId: timeTreeCalendarId ?? this.timeTreeCalendarId,
       timeTreeCalendarName: timeTreeCalendarName ?? this.timeTreeCalendarName,
       timeTreeLabelRoles: timeTreeLabelRoles ?? this.timeTreeLabelRoles,
@@ -104,6 +120,9 @@ class UserSettings {
         'workAddress': workAddress,
         'workLat': workLat,
         'workLng': workLng,
+        'partnerWorkAddress': partnerWorkAddress,
+        'partnerWorkLat': partnerWorkLat,
+        'partnerWorkLng': partnerWorkLng,
         'timeTreeCalendarId': timeTreeCalendarId,
         'timeTreeCalendarName': timeTreeCalendarName,
         'timeTreeLabelRoles': timeTreeLabelRoles.map((id, role) => MapEntry('$id', role.name)),
@@ -119,6 +138,9 @@ class UserSettings {
         workAddress: json['workAddress'] as String?,
         workLat: (json['workLat'] as num?)?.toDouble(),
         workLng: (json['workLng'] as num?)?.toDouble(),
+        partnerWorkAddress: json['partnerWorkAddress'] as String?,
+        partnerWorkLat: (json['partnerWorkLat'] as num?)?.toDouble(),
+        partnerWorkLng: (json['partnerWorkLng'] as num?)?.toDouble(),
         timeTreeCalendarId: json['timeTreeCalendarId'] as String?,
         timeTreeCalendarName: json['timeTreeCalendarName'] as String?,
         timeTreeLabelRoles: (json['timeTreeLabelRoles'] as Map<String, dynamic>? ?? const {}).map(

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/schedule_event.dart';
@@ -28,6 +29,7 @@ class TodayGuideScreen extends StatefulWidget {
     required this.onOpenSettings,
     this.onEventsFetched,
     this.onResetApp,
+    this.refreshSignal,
   });
 
   final UserSettings settings;
@@ -38,6 +40,11 @@ class TodayGuideScreen extends StatefulWidget {
 
   /// "앱 초기화" 버튼을 누르고 사용자가 확인했을 때 호출된다.
   final Future<void> Function()? onResetApp;
+
+  /// 값이 바뀔 때마다(알림을 탭할 때마다) 그 시점 기준으로 다시 계산한다.
+  /// 앱이 이미 떠 있는 상태에서 알림을 탭하면 이 화면이 재생성되지 않아서
+  /// initState만으로는 새로고침이 안 되기 때문에 필요하다.
+  final ValueListenable<int>? refreshSignal;
 
   @override
   State<TodayGuideScreen> createState() => _TodayGuideScreenState();
@@ -65,6 +72,7 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
   void initState() {
     super.initState();
     _future = _load();
+    widget.refreshSignal?.addListener(_handleRefreshSignal);
   }
 
   @override
@@ -75,6 +83,21 @@ class _TodayGuideScreenState extends State<TodayGuideScreen> {
         _future = _load();
       });
     }
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal?.removeListener(_handleRefreshSignal);
+      widget.refreshSignal?.addListener(_handleRefreshSignal);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_handleRefreshSignal);
+    super.dispose();
+  }
+
+  /// 알림을 탭했을 때(=refreshSignal 값 변경) 그 시점 기준으로 다시 계산한다.
+  void _handleRefreshSignal() {
+    if (mounted) _refresh();
   }
 
   Future<TodayGuideResult> _load() {
