@@ -18,9 +18,11 @@ export default defineConfig({
   },
   web: {
     host: 'localhost',
-    port: 5173,
+    port: 8788,
     commands: {
-      dev: 'vite --host',
+      // vite(5173)는 정적 자산만 서빙하고, wrangler pages dev(8788)가
+      // /api/* 는 Cloudflare Pages Functions로 처리하고 나머지는 vite로 프록시함
+      dev: 'concurrently -k -n vite,wrangler "vite --host" "wrangler pages dev --proxy 5173 --port 8788 --ip 0.0.0.0 --compatibility-date 2025-01-01"',
       build: 'vite build',
     },
   },
