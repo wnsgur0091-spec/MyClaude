@@ -1267,22 +1267,38 @@ async function renderRecentChecks() {
 }
 
 function restoreRecentCheck(record) {
-  state.selectedTpo = record.tpo;
-  state.apiData = record.apiData;
   state.isBattleMode = false;
-  state.originalOotdImage = record.originalImage;
-  state.improvedOotdImage = record.improvedImage || null;
-  state.currentOotdImage = record.improvedImage || record.originalImage;
   state.currentRecordId = record.id;
   state.recordCreatedAt = record.createdAt;
 
+  if (!record.improvedImage) {
+    // 개선(before/after)을 적용하지 않은 기록은 캐시로 때우지 않고,
+    // 저장된 사진으로 실제 재측정을 수행해 Cloudflare Worker를 다시 다녀온다.
+    state.currentOotdImage = record.originalImage;
+    state.originalOotdImage = record.originalImage;
+    state.improvedOotdImage = null;
+    state.apiData = null;
+    dom.uploadPreviewImg.src = record.originalImage;
+    dom.uploadPlaceholder.classList.add('hidden');
+    dom.uploadPreviewContainer.classList.remove('hidden');
+    dom.btnSubmitScan.disabled = false;
+    selectTpo(record.tpo);
+    startScanningSequence();
+    return;
+  }
+
+  // 개선까지 마친 기록은 저장된 스냅샷(분석 결과 + 사진)을 그대로 복원
+  state.selectedTpo = record.tpo;
+  state.apiData = record.apiData;
+  state.originalOotdImage = record.originalImage;
+  state.improvedOotdImage = record.improvedImage;
+  state.currentOotdImage = record.improvedImage;
+
   calculateFashionResults();
 
-  if (record.improvedImage) {
-    state.isPatched = true;
-    if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
-    if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
-  }
+  state.isPatched = true;
+  if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
+  if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
 
   if (dom.appHeader) dom.appHeader.classList.remove('hidden');
   dom.screenUpload.classList.remove('active-screen');
@@ -2094,6 +2110,7 @@ function fallbackCopyTextToClipboard(text) {
 function openMusinsaSearch(url) {
   const isAndroid = /Android/i.test(navigator.userAgent);
   if (!isAndroid) {
+    remoteLog('openMusinsaSearch', { branch: 'non-android-web-open', url });
     window.open(url, '_blank');
     return;
   }
@@ -2102,35 +2119,59 @@ function openMusinsaSearch(url) {
   // 앱으로 바로 이동하고, 없으면 S.browser_fallback_url로 지정한 웹 페이지로 이동한다.
   const withoutScheme = url.replace(/^https?:\/\//, '');
   const intentUrl = `intent://${withoutScheme}#Intent;scheme=https;package=com.musinsa.store;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+  remoteLog('openMusinsaSearch', { branch: 'attempt-intent', intentUrl });
 
   // 앱인토스 웹뷰가 intent:// 를 지원하지 않을 경우를 대비해, 페이지가 계속 보이면
   // (= 앱으로 전환되지 않았으면) 직접 웹 URL로 폴백한다.
   const fallbackTimer = setTimeout(() => {
-    console.warn('Musinsa intent link did not switch apps in time, falling back to web.');
+    remoteLog('openMusinsaSearch', { branch: 'fallback-timer-fired', documentHidden: document.hidden, url });
     window.open(url, '_blank');
-  }, 1200);
-  const cancelFallback = () => {
+  }, 2500);
+  const cancelFallback = (reason) => {
+    remoteLog('openMusinsaSearch', { branch: 'fallback-cancelled', reason });
     clearTimeout(fallbackTimer);
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
   const onVisibilityChange = () => {
-    if (document.hidden) cancelFallback();
+    if (document.hidden) cancelFallback('visibilitychange-hidden');
   };
   document.addEventListener('visibilitychange', onVisibilityChange);
 
   try {
     window.location.href = intentUrl;
+    remoteLog('openMusinsaSearch', { branch: 'intent-navigation-called-no-throw' });
   } catch (err) {
-    console.warn('Musinsa intent link failed, falling back to web.', err);
-    cancelFallback();
+    remoteLog('openMusinsaSearch', { branch: 'intent-threw', message: err?.message });
+    cancelFallback('intent-threw');
     window.open(url, '_blank');
   }
 }
 
-// 공유 관련 기능 디버깅용 - Web Share/파일 공유 지원 여부를 콘솔에 남긴다.
+// 웹뷰 console.log는 wrangler 서버 로그로 전달되지 않아서, 서버로 직접 보내
+// wrangler 콘솔에 남긴다 (개발/QA 디버깅 전용).
+function remoteLog(tag, data) {
+  try {
+    fetch('/api/debug-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag, ts: new Date().toISOString(), ...data }),
+    }).catch(() => {});
+  } catch {
+    // 무시 - 디버깅 전용 로그이므로 실패해도 앱 동작에 영향 없음
+  }
+}
+
+// 공유 관련 기능 디버깅용 - Web Share/파일 공유 지원 여부를 콘솔/서버 로그에 남긴다.
 function logShareCapability(tag) {
   const canShareFiles = !!(state.shareImageFile && navigator.canShare?.({ files: [state.shareImageFile] }));
-  console.log(`[${tag}] hasShareImageFile=${!!state.shareImageFile} hasNavigatorShare=${!!navigator.share} hasCanShare=${!!navigator.canShare} canShareFiles=${canShareFiles}`);
+  const info = {
+    hasShareImageFile: !!state.shareImageFile,
+    hasNavigatorShare: !!navigator.share,
+    hasCanShare: !!navigator.canShare,
+    canShareFiles,
+  };
+  console.log(`[${tag}]`, info);
+  remoteLog(tag, info);
   return canShareFiles;
 }
 
@@ -2144,14 +2185,17 @@ async function openInstagramApp() {
         title: 'FITCHECK! OOTD',
         text: '공유 시트에서 인스타그램을 선택하면 바로 업로드할 수 있어요! 📸',
       });
-      console.log('[openInstagramApp] navigator.share resolved (사용자가 공유를 완료했거나 취소함)');
+      remoteLog('openInstagramApp', { branch: 'share-resolved' });
       return;
     } catch (err) {
-      if (err?.name === 'AbortError') return;
-      console.warn('[openInstagramApp] navigator.share failed, falling back to web.', err?.name, err?.message);
+      if (err?.name === 'AbortError') {
+        remoteLog('openInstagramApp', { branch: 'share-aborted-by-user' });
+        return;
+      }
+      remoteLog('openInstagramApp', { branch: 'share-threw', name: err?.name, message: err?.message });
     }
   } else {
-    console.warn('[openInstagramApp] Web Share 파일 공유 미지원 - 웹 폴백으로 이동');
+    remoteLog('openInstagramApp', { branch: 'no-file-share-support-web-fallback' });
   }
   window.open("https://www.instagram.com/", "_blank");
 }
@@ -2181,7 +2225,7 @@ async function shareSystem() {
 
 // 선택적 이미지 다운로드 실행
 async function downloadShareImage() {
-  console.log('[downloadShareImage] called. hasShareImageDataUrl=', !!state.shareImageDataUrl);
+  remoteLog('downloadShareImage', { branch: 'called', hasShareImageDataUrl: !!state.shareImageDataUrl });
   if (!state.shareImageDataUrl) {
     showToast("다운로드할 이미지가 없습니다.");
     return;
@@ -2197,16 +2241,19 @@ async function downloadShareImage() {
         title: 'FITCHECK! OOTD',
         text: '내 OOTD 패션 점수 결과예요! 사진 앱에 저장해보세요. 📸',
       });
-      console.log('[downloadShareImage] navigator.share resolved.');
+      remoteLog('downloadShareImage', { branch: 'share-resolved' });
       showToast("공유 시트에서 '사진에 저장'을 선택해 보관해 주세요! 💾");
       playSound('download');
       return;
     } catch (err) {
-      if (err?.name === 'AbortError') return;
-      console.warn('[downloadShareImage] Share-based save failed, falling back to direct download.', err?.name, err?.message);
+      if (err?.name === 'AbortError') {
+        remoteLog('downloadShareImage', { branch: 'share-aborted-by-user' });
+        return;
+      }
+      remoteLog('downloadShareImage', { branch: 'share-threw', name: err?.name, message: err?.message });
     }
   } else {
-    console.warn('[downloadShareImage] Web Share 파일 공유 미지원 - <a download> 폴백으로 이동');
+    remoteLog('downloadShareImage', { branch: 'no-file-share-support-fallback-to-a-download' });
   }
 
   try {
@@ -2216,12 +2263,12 @@ async function downloadShareImage() {
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-    console.log('[downloadShareImage] <a download> click dispatched.');
+    remoteLog('downloadShareImage', { branch: 'a-download-click-dispatched-no-throw' });
 
     showToast("이미지가 기기에 저장되었습니다! 💾");
     playSound('download');
   } catch (err) {
-    console.error("[downloadShareImage] Download failed", err);
+    remoteLog('downloadShareImage', { branch: 'a-download-threw', message: err?.message });
     showToast("이미지 다운로드에 실패했습니다.");
   }
 }
