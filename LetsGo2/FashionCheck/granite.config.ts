@@ -9,6 +9,7 @@ export default defineConfig({
   },
   permissions: [
     { name: 'photos', access: 'read' },
+    { name: 'clipboard', access: 'write' },
   ],
   navigationBar: {
     withBackButton: true,
@@ -19,7 +20,7 @@ export default defineConfig({
     host: 'localhost',
     port: 5173,
     commands: {
-      dev: 'vite',
+      dev: 'vite --host',
       build: 'vite build',
     },
   },
