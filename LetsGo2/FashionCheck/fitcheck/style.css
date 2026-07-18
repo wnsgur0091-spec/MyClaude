@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================
+   FITCHECK! NEO-BRUTALISM GLOBAL STYLESHEET
+   ======================================================== */
+
+/* 1. 기본 리셋 및 폰트 강제 적용 */
+body {
+  font-family: 'Lexend', sans-serif;
+  background-color: #eae6ff; /* Lavender */
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* 2. 네오 브루탈리즘 핵심 유틸리티 */
+.neo-shadow {
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+}
+
+button.neo-shadow:active:not(:disabled),
+.tpo-chip:active,
+.neo-shadow-clickable:active {
+  box-shadow: 0px 0px 0px 0px #000000 !important;
+  transform: translate(4px, 4px) !important;
+}
+
+/* 호버 시 약간의 틸트나 트랜지션 제공 */
+.btn-preset:hover, .tpo-chip:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px 0px #000000;
+}
+
+.btn-preset:active, .tpo-chip:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px #000000;
+}
+
+/* TPO 선택 상태 */
+.tpo-chip.active-tpo {
+  background-color: #fff9e6 !important; /* Cream */
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+  transform: translate(0, 0);
+  border-color: #000000 !important;
+}
+
+/* 프리셋 선택 상태 */
+.btn-preset.active-preset {
+  background-color: #ffefea !important; /* Peach */
+  box-shadow: 4px 4px 0px 0px #000000 !important;
+  transform: translate(0, 0);
+  border-color: #000000 !important;
+}
+
+/* 3. 모서리 각진 90도 모양 강제 (Sharp Shapes) */
+* {
+  border-radius: 0px !important;
+}
+
+/* 예외 사항: 엔젤/데빌 핀 및 아바타 서클만 원형 유지 */
+.rounded-full, 
+#pin-angel, 
+#pin-devil, 
+.viewfinder-tech-overlay,
+#app-toast {
+  border-radius: 9999px !important;
+}
+
+/* 4. 스크롤바 감추기 */
+.hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+.hide-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 5. 단일 페이지(SPA) 화면 가시성 제어 (Tailwind .flex 간섭 해결을 위해 !important 강제) */
+section {
+  display: none !important;
+}
+section.active-screen {
+  display: flex !important;
+}
+
+/* 6. 상세 스탯 바 디자인 */
+.stat-bar-fill {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(0, 0, 0, 0.08) 4px,
+    rgba(0, 0, 0, 0.08) 8px
+  );
+}
+
+/* 7. 로딩 및 스캔 애니메이션 */
+@keyframes pulse-status {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+#loading-status-text {
+  animation: pulse-status 1.2s infinite ease-in-out;
+}
+
+/* 8. 툴팁 말풍선 오버레이 */
+#feedback-tooltip {
+  animation: slide-in-tooltip 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slide-in-tooltip {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 9. Canvas EXPORT 미리보기 방지용 숨김 처리 */
+.hidden {
+  display: none !important;
+}
+
+/* 10. Neo-Brutalist Pin Pulse (그림자 맥박 애니메이션으로 인지 가능성 비약적 향상) */
+@keyframes neo-pin-pulse {
+  0%, 100% {
+    box-shadow: 1px 1px 0 0 #000000;
+  }
+  50% {
+    box-shadow: 2px 2px 0 0 #000000;
+    transform: scale(1.02) translate(-0.25px, -0.25px);
+  }
+}
+
+#pin-angel, #pin-devil {
+  animation: neo-pin-pulse 2.2s infinite ease-in-out;
+}
