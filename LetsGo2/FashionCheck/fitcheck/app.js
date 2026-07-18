@@ -43,7 +43,9 @@ const dom = {
   appHeader: document.getElementById('app-header'),
   firstVisitGuide: document.getElementById('first-visit-guide'),
   btnCloseFirstVisitGuide: document.getElementById('btn-close-first-visit-guide'),
-  
+  tutorialSlides: document.getElementById('tutorial-slides'),
+  tutorialDots: document.querySelectorAll('.tutorial-dot'),
+
   // 화면 세션들
   screenUpload: document.getElementById('screen-upload'),
   screenLoading: document.getElementById('screen-loading'),
@@ -194,6 +196,20 @@ function bindEvents() {
     localStorage.setItem('fitcheck.fullBodyGuideSeen', '1');
     dom.firstVisitGuide.classList.add('hidden');
   });
+
+  // 튜토리얼 스와이프 - 현재 슬라이드에 맞춰 도트 인디케이터 갱신
+  if (dom.tutorialSlides) {
+    dom.tutorialSlides.addEventListener('scroll', () => {
+      const slideIndex = Math.round(dom.tutorialSlides.scrollLeft / dom.tutorialSlides.clientWidth);
+      dom.tutorialDots.forEach((dot, idx) => {
+        dot.classList.toggle('bg-black/20', idx !== slideIndex);
+        dot.classList.toggle('bg-black', idx === slideIndex);
+        dot.classList.toggle('w-5', idx === slideIndex);
+        dot.classList.toggle('w-2', idx !== slideIndex);
+      });
+    });
+  }
+
   // 1. TPO 칩 클릭
   dom.tpoChips.forEach(chip => {
     chip.addEventListener('click', (e) => {
@@ -1912,9 +1928,25 @@ function fallbackCopyTextToClipboard(text) {
 // 인스타그램 웹 연동
 // 주의: instagram:// 커스텀 스킴은 앱인토스 웹뷰 네이티브 브릿지(Linking)에서
 // 지원하지 않는 스킴이라 열 수 없다는 경고가 발생하고 좀처럼 닫히지 않는다.
-// (앱인토스 SDK도 외부 앱 스킴을 여는 API를 제공하지 않음) 그래서 바로 웹 버전으로 연결한다.
-function openInstagramApp() {
+// (앱인토스 SDK도 외부 앱 스킴을 여는 API를 제공하지 않음)
+// 대신 파일 공유가 가능하면 네이티브 공유 시트를 띄운다 - 사용자가 시트에서 인스타그램을
+// 선택하면 인스타그램 앱 자체의 스토리/게시물 작성 화면으로 사진과 함께 바로 이동한다.
+// 공유가 불가능한 환경(데스크탑 등)에서만 인스타그램 웹으로 폴백한다.
+async function openInstagramApp() {
   playSound('select');
+  if (state.shareImageFile && navigator.share && navigator.canShare?.({ files: [state.shareImageFile] })) {
+    try {
+      await navigator.share({
+        files: [state.shareImageFile],
+        title: 'FITCHECK! OOTD',
+        text: '공유 시트에서 인스타그램을 선택하면 바로 업로드할 수 있어요! 📸',
+      });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      console.warn('Instagram share via native sheet failed, falling back to web.', err);
+    }
+  }
   window.open("https://www.instagram.com/", "_blank");
 }
 
@@ -1942,10 +1974,28 @@ async function shareSystem() {
 }
 
 // 선택적 이미지 다운로드 실행
-function downloadShareImage() {
+async function downloadShareImage() {
   if (!state.shareImageDataUrl) {
     showToast("다운로드할 이미지가 없습니다.");
     return;
+  }
+
+  // 앱인토스 웹뷰 등에서는 <a download> 클릭이 씹혀서 갤러리에 저장되지 않는 경우가 많아,
+  // 파일 공유가 가능하면 네이티브 공유 시트(사진 앱으로 저장 옵션 포함)를 우선 사용한다.
+  if (state.shareImageFile && navigator.share && navigator.canShare?.({ files: [state.shareImageFile] })) {
+    try {
+      await navigator.share({
+        files: [state.shareImageFile],
+        title: 'FITCHECK! OOTD',
+        text: '내 OOTD 패션 점수 결과예요! 사진 앱에 저장해보세요. 📸',
+      });
+      showToast("공유 시트에서 '사진에 저장'을 선택해 보관해 주세요! 💾");
+      playSound('download');
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      console.warn('Share-based save failed, falling back to direct download.', err);
+    }
   }
 
   try {
@@ -1955,7 +2005,7 @@ function downloadShareImage() {
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-    
+
     showToast("이미지가 기기에 저장되었습니다! 💾");
     playSound('download');
   } catch (err) {

@@ -8,6 +8,10 @@ const MODEL_REGISTRY = Object.freeze({
     provider: 'gemini',
     capabilities: [AI_FEATURES.OUTFIT_ANALYSIS],
   },
+  'gemini-3.5-flash': {
+    provider: 'gemini',
+    capabilities: [AI_FEATURES.OUTFIT_ANALYSIS],
+  },
   '@cf/black-forest-labs/flux-2-klein-4b': {
     provider: 'cloudflare-workers-ai',
     capabilities: [AI_FEATURES.STYLE_EDIT],
@@ -25,7 +29,7 @@ const MODEL_REGISTRY = Object.freeze({
 const FEATURE_CONFIG = Object.freeze({
   [AI_FEATURES.OUTFIT_ANALYSIS]: {
     environmentKey: 'AI_OUTFIT_ANALYSIS_MODEL',
-    defaultModel: 'gemini-3.1-flash-lite',
+    defaultModel: 'gemini-3.5-flash',
   },
   [AI_FEATURES.STYLE_EDIT]: {
     environmentKey: 'AI_STYLE_EDIT_MODEL',
