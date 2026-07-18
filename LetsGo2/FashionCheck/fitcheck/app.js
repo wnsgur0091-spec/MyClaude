@@ -306,6 +306,13 @@ function bindEvents() {
       }
     });
   }
+  // 개선 적용 후 뜨는 "무신사 검색 ↗" 링크도 동일하게 앱 딥링크 시도 경유
+  if (dom.improvedShoppingLink) {
+    dom.improvedShoppingLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      openMusinsaSearch(dom.improvedShoppingLink.href);
+    });
+  }
   if (dom.btnCloseMusinsaModal) {
     dom.btnCloseMusinsaModal.addEventListener('click', () => {
       dom.musinsaRedirectModal.classList.add('hidden');
@@ -2175,29 +2182,46 @@ function logShareCapability(tag) {
   return canShareFiles;
 }
 
+// 참고: 이 웹뷰엔 Web Share API가 없고(navigator.share === undefined, 로그로 확인됨),
+// 이미지를 첨부한 채로 인스타 스토리 작성 화면을 여는 건 안드로이드 네이티브
+// content:// URI가 필요해서 웹에서는 만들 수 없다. 그래서 여기서는 "이미지는 이미
+// 저장되어 있으니, 인스타그램 앱만 열어서 사용자가 직접 첨부하게" 하는 것을 목표로 한다.
 async function openInstagramApp() {
   playSound('select');
-  const canShareFiles = logShareCapability('openInstagramApp');
-  if (state.shareImageFile && navigator.share && canShareFiles) {
-    try {
-      await navigator.share({
-        files: [state.shareImageFile],
-        title: 'FITCHECK! OOTD',
-        text: '공유 시트에서 인스타그램을 선택하면 바로 업로드할 수 있어요! 📸',
-      });
-      remoteLog('openInstagramApp', { branch: 'share-resolved' });
-      return;
-    } catch (err) {
-      if (err?.name === 'AbortError') {
-        remoteLog('openInstagramApp', { branch: 'share-aborted-by-user' });
-        return;
-      }
-      remoteLog('openInstagramApp', { branch: 'share-threw', name: err?.name, message: err?.message });
-    }
-  } else {
-    remoteLog('openInstagramApp', { branch: 'no-file-share-support-web-fallback' });
+  logShareCapability('openInstagramApp');
+
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (!isAndroid) {
+    remoteLog('openInstagramApp', { branch: 'non-android-web-open' });
+    window.open("https://www.instagram.com/", "_blank");
+    return;
   }
-  window.open("https://www.instagram.com/", "_blank");
+
+  const intentUrl = 'intent://instagram.com/#Intent;package=com.instagram.android;scheme=https;S.browser_fallback_url=' + encodeURIComponent('https://www.instagram.com/') + ';end';
+  remoteLog('openInstagramApp', { branch: 'attempt-intent', intentUrl });
+
+  const fallbackTimer = setTimeout(() => {
+    remoteLog('openInstagramApp', { branch: 'fallback-timer-fired', documentHidden: document.hidden });
+    window.open("https://www.instagram.com/", "_blank");
+  }, 2500);
+  const cancelFallback = (reason) => {
+    remoteLog('openInstagramApp', { branch: 'fallback-cancelled', reason });
+    clearTimeout(fallbackTimer);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) cancelFallback('visibilitychange-hidden');
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  try {
+    window.location.href = intentUrl;
+    remoteLog('openInstagramApp', { branch: 'intent-navigation-called-no-throw' });
+  } catch (err) {
+    remoteLog('openInstagramApp', { branch: 'intent-threw', message: err?.message });
+    cancelFallback('intent-threw');
+    window.open("https://www.instagram.com/", "_blank");
+  }
 }
 
 // 시스템 공유 API 호출 (Web Share API)
@@ -2224,6 +2248,8 @@ async function shareSystem() {
 }
 
 // 선택적 이미지 다운로드 실행
+// 참고: 이 웹뷰 환경엔 Web Share API 자체가 없음(navigator.share === undefined)이
+// 로그로 확인되어, 공유 시트 경유 방식은 포기하고 blob URL 다운로드로 시도한다.
 async function downloadShareImage() {
   remoteLog('downloadShareImage', { branch: 'called', hasShareImageDataUrl: !!state.shareImageDataUrl });
   if (!state.shareImageDataUrl) {
@@ -2231,45 +2257,26 @@ async function downloadShareImage() {
     return;
   }
 
-  // 앱인토스 웹뷰 등에서는 <a download> 클릭이 씹혀서 갤러리에 저장되지 않는 경우가 많아,
-  // 파일 공유가 가능하면 네이티브 공유 시트(사진 앱으로 저장 옵션 포함)를 우선 사용한다.
-  const canShareFiles = logShareCapability('downloadShareImage');
-  if (state.shareImageFile && navigator.share && canShareFiles) {
-    try {
-      await navigator.share({
-        files: [state.shareImageFile],
-        title: 'FITCHECK! OOTD',
-        text: '내 OOTD 패션 점수 결과예요! 사진 앱에 저장해보세요. 📸',
-      });
-      remoteLog('downloadShareImage', { branch: 'share-resolved' });
-      showToast("공유 시트에서 '사진에 저장'을 선택해 보관해 주세요! 💾");
-      playSound('download');
-      return;
-    } catch (err) {
-      if (err?.name === 'AbortError') {
-        remoteLog('downloadShareImage', { branch: 'share-aborted-by-user' });
-        return;
-      }
-      remoteLog('downloadShareImage', { branch: 'share-threw', name: err?.name, message: err?.message });
-    }
-  } else {
-    remoteLog('downloadShareImage', { branch: 'no-file-share-support-fallback-to-a-download' });
-  }
-
+  let objectUrl;
   try {
+    // data: URI보다 blob: URL이 일부 웹뷰의 다운로드 처리기와 더 잘 맞는 경우가 있어 우선 시도.
+    const blob = await (await fetch(state.shareImageDataUrl)).blob();
+    objectUrl = URL.createObjectURL(blob);
     const downloadLink = document.createElement('a');
     downloadLink.download = `fitcheck_ootd_${state.score}.png`;
-    downloadLink.href = state.shareImageDataUrl;
+    downloadLink.href = objectUrl;
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
-    remoteLog('downloadShareImage', { branch: 'a-download-click-dispatched-no-throw' });
+    remoteLog('downloadShareImage', { branch: 'blob-download-dispatched-no-throw' });
 
-    showToast("이미지가 기기에 저장되었습니다! 💾");
+    showToast("이미지가 기기에 저장되었습니다! 갤러리/다운로드 폴더를 확인해 주세요. 💾");
     playSound('download');
   } catch (err) {
-    remoteLog('downloadShareImage', { branch: 'a-download-threw', message: err?.message });
+    remoteLog('downloadShareImage', { branch: 'blob-download-threw', message: err?.message });
     showToast("이미지 다운로드에 실패했습니다.");
+  } finally {
+    if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
   }
 }
 
