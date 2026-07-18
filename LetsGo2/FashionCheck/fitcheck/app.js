@@ -34,7 +34,14 @@ const state = {
   // 공유 기능용 임시 보관 데이터
   shareImageDataUrl: null,
   shareImageFile: null,
+
+  // 최근 패션 체크 기록용 임시 ID (같은 세션 내 개선 적용 시 동일 기록을 갱신)
+  currentRecordId: null,
 };
+
+const RECENT_CHECKS_DB_NAME = 'fitcheck-recent-checks';
+const RECENT_CHECKS_STORE = 'checks';
+const RECENT_CHECKS_LIMIT = 3;
 
 // 2. DOM 요소 셀렉터
 const dom = {
@@ -59,7 +66,9 @@ const dom = {
   imageFileInput: document.getElementById('image-file-input'),
   tpoChips: document.querySelectorAll('.tpo-chip'),
   btnSubmitScan: document.getElementById('btn-submit-scan'),
-  
+  recentChecksCard: document.getElementById('recent-checks-card'),
+  recentChecksList: document.getElementById('recent-checks-list'),
+
   // 로딩 화면
   loadingTitle: document.getElementById('loading-title'),
   loadingStatusText: document.getElementById('loading-status-text'),
@@ -141,7 +150,7 @@ const dom = {
 
 function init() {
   bindEvents();
-  if (localStorage.getItem('fitcheck.fullBodyGuideSeen') !== '1') {
+  if (localStorage.getItem('fitcheck.tutorialSeen.v2') !== '1') {
     dom.firstVisitGuide.classList.remove('hidden');
   }
   
@@ -151,6 +160,8 @@ function init() {
   if (!state.isBattleMode) {
     selectTpo('일상'); // 일반 모드일 때 디폴트는 일상
   }
+
+  renderRecentChecks();
 }
 
 // URL 배틀 쿼리 파라미터 감지기
@@ -193,7 +204,7 @@ function checkBattleQueryParameters() {
 // 이벤트 바인딩
 function bindEvents() {
   dom.btnCloseFirstVisitGuide.addEventListener('click', () => {
-    localStorage.setItem('fitcheck.fullBodyGuideSeen', '1');
+    localStorage.setItem('fitcheck.tutorialSeen.v2', '1');
     dom.firstVisitGuide.classList.add('hidden');
   });
 
@@ -307,7 +318,7 @@ function bindEvents() {
   }
   if (dom.btnConfirmMusinsaRedirect) {
     dom.btnConfirmMusinsaRedirect.addEventListener('click', () => {
-      window.open(state.targetMusinsaUrl, '_blank');
+      openMusinsaSearch(state.targetMusinsaUrl);
       dom.musinsaRedirectModal.classList.add('hidden');
     });
   }
@@ -617,6 +628,9 @@ function calculateFashionResults() {
 
   // 점수판 그리기 및 카운트업
   renderResultDashboard();
+
+  // 최근 패션 체크 기록 저장 (배틀 모드 제외)
+  saveRecentCheck();
 }
 
 // 핀 마커 포지셔닝 및 코디 세팅 (마진 태그 및 연결선으로 전면 재설계)
@@ -1010,7 +1024,7 @@ async function applyStyleAdvice() {
   playSound('upgrade');
   dom.tagContainer.classList.add('hidden');
   dom.tagLinesSvg.classList.add('hidden');
-  dom.resultTopOverlayTag.textContent = '개선 이미지';
+  dom.resultTopOverlayTag.textContent = '개선';
   dom.imageVersionToggle.classList.remove('hidden');
   dom.improvedShoppingItem.textContent = recommendItemName;
   dom.improvedShoppingDescription.textContent = state.apiData?.improvementSummary
@@ -1020,6 +1034,7 @@ async function applyStyleAdvice() {
   dom.pinInteractionGuide.classList.add('hidden');
   showImageVersion('after');
   showToast('코디 적용 완료! BEFORE / AFTER로 변신을 확인해 보세요. ✨');
+  saveRecentCheck();
 }
 
 function showImageVersion(version) {
@@ -1028,7 +1043,7 @@ function showImageVersion(version) {
   dom.resultOotdImg.src = showBefore ? state.originalOotdImage : state.improvedOotdImage;
   dom.btnShowBefore.className = `px-2 py-1 text-[10px] font-black ${showBefore ? 'bg-black text-white' : 'bg-white text-black'}`;
   dom.btnShowAfter.className = `px-2 py-1 text-[10px] font-black ${showBefore ? 'bg-white text-black' : 'bg-secondary text-black'}`;
-  dom.resultTopOverlayTag.textContent = showBefore ? '원본' : '개선 이미지';
+  dom.resultTopOverlayTag.textContent = showBefore ? '원본' : '개선';
 }
 
 function applyImprovedAnalysis(analysis, previousStats) {
@@ -1138,6 +1153,143 @@ function calculateTier(score) {
   return '아이언';
 }
 
+// ========================================================
+// 최근 패션 체크 기록 (IndexedDB - 이 브라우저에만 영구 저장됨)
+// ========================================================
+
+function openRecentChecksDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(RECENT_CHECKS_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(RECENT_CHECKS_STORE)) {
+        request.result.createObjectStore(RECENT_CHECKS_STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveRecentCheck() {
+  if (state.isBattleMode || !state.apiData) return;
+  try {
+    state.currentRecordId ||= `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const record = {
+      id: state.currentRecordId,
+      createdAt: state.recordCreatedAt || Date.now(),
+      updatedAt: Date.now(),
+      tpo: state.selectedTpo,
+      score: state.score,
+      tier: state.tier,
+      isPatched: !!state.isPatched,
+      apiData: state.apiData,
+      originalImage: state.originalOotdImage,
+      improvedImage: state.improvedOotdImage || null,
+    };
+    state.recordCreatedAt = record.createdAt;
+
+    const db = await openRecentChecksDb();
+    const all = await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_CHECKS_STORE, 'readonly');
+      const request = tx.objectStore(RECENT_CHECKS_STORE).getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    const keepIds = new Set([
+      record.id,
+      ...all
+        .filter((item) => item.id !== record.id)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, RECENT_CHECKS_LIMIT - 1)
+        .map((item) => item.id),
+    ]);
+
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_CHECKS_STORE, 'readwrite');
+      const store = tx.objectStore(RECENT_CHECKS_STORE);
+      store.put(record);
+      all.forEach((item) => {
+        if (!keepIds.has(item.id)) store.delete(item.id);
+      });
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+    renderRecentChecks();
+  } catch (error) {
+    console.warn('Recent check could not be saved.', error);
+  }
+}
+
+async function loadRecentChecks() {
+  try {
+    const db = await openRecentChecksDb();
+    const all = await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_CHECKS_STORE, 'readonly');
+      const request = tx.objectStore(RECENT_CHECKS_STORE).getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT_CHECKS_LIMIT);
+  } catch (error) {
+    console.warn('Recent checks could not be loaded.', error);
+    return [];
+  }
+}
+
+async function renderRecentChecks() {
+  const records = await loadRecentChecks();
+  if (!dom.recentChecksList || !dom.recentChecksCard) return;
+  dom.recentChecksList.innerHTML = '';
+
+  records.forEach((record) => {
+    const thumb = record.improvedImage || record.originalImage;
+    const date = new Date(record.updatedAt || record.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+
+    const card = document.createElement('div');
+    card.className = 'flex items-center gap-3 bg-white border-[3px] border-black neo-shadow p-2 cursor-pointer hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all';
+    card.innerHTML = `
+      <div class="w-16 h-16 shrink-0 border-[2px] border-black bg-[#eeeeee] overflow-hidden">
+        <img src="${thumb}" alt="최근 패션 체크" class="w-full h-full object-cover">
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="font-headline text-sm font-black truncate">${record.tpo} · ${record.tier}${record.isPatched ? ' · 개선' : ''}</p>
+        <p class="text-[10px] font-bold text-on-surface-variant">${date}</p>
+      </div>
+      <strong class="font-headline text-lg font-black shrink-0">${record.score.toLocaleString()}</strong>
+    `;
+    card.addEventListener('click', () => restoreRecentCheck(record));
+    dom.recentChecksList.appendChild(card);
+  });
+
+  dom.recentChecksCard.classList.toggle('hidden', records.length === 0);
+}
+
+function restoreRecentCheck(record) {
+  state.selectedTpo = record.tpo;
+  state.apiData = record.apiData;
+  state.isBattleMode = false;
+  state.originalOotdImage = record.originalImage;
+  state.improvedOotdImage = record.improvedImage || null;
+  state.currentOotdImage = record.improvedImage || record.originalImage;
+  state.currentRecordId = record.id;
+  state.recordCreatedAt = record.createdAt;
+
+  calculateFashionResults();
+
+  if (record.improvedImage) {
+    state.isPatched = true;
+    if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
+    if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
+  }
+
+  if (dom.appHeader) dom.appHeader.classList.remove('hidden');
+  dom.screenUpload.classList.remove('active-screen');
+  dom.screenResult.classList.add('active-screen');
+  playSound('select');
+}
+
 // 스탯별 위트있는 상세 설명 데이터베이스
 const statDescriptions = {
   // 일상
@@ -1223,8 +1375,14 @@ function renderVibeStats() {
     // 5대 교차 컬러 배치 (Lavender, Mint, Peach, Cream, Deep Lavender)
     const colorClasses = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-cream', 'bg-[#c9c1ff]'];
     const barColor = colorClasses[idx % colorClasses.length];
+    const delta = stat.val - stat.originalVal;
     const baseline = Math.min(stat.originalVal, stat.val);
-    const gain = Math.max(0, stat.val - baseline);
+    const change = Math.abs(delta);
+    const changeBarClass = delta > 0 ? 'bg-[#3182F6]' : 'bg-error';
+    const changeTextClass = delta > 0 ? 'text-[#3182F6]' : 'text-error';
+    const changeLabel = delta
+      ? `${delta > 0 ? '+' : ''}${delta} ${delta > 0 ? 'UP!' : 'DOWN!'}`
+      : '';
 
     const statItem = document.createElement('div');
     statItem.className = "flex flex-col gap-1 cursor-pointer group w-full";
@@ -1233,9 +1391,9 @@ function renderVibeStats() {
         <span class="w-24 font-bold text-xs uppercase tracking-tight text-black">${stat.name}</span>
         <div class="flex-1 h-5 border-[3px] border-black bg-white flex overflow-hidden">
           <div class="stat-bar-base ${barColor} h-full transition-all duration-700" style="width: 0%;"></div>
-          <div class="stat-bar-gain bg-error h-full transition-all duration-700" style="width: 0%;"></div>
+          <div class="stat-bar-gain ${changeBarClass} h-full transition-all duration-700" style="width: 0%;"></div>
         </div>
-        <span class="w-14 text-right text-xs font-headline font-black text-black">${stat.val}%${gain ? `<small class="block text-[8px] text-error">+${gain} UP!</small>` : ''}</span>
+        <span class="w-14 text-right text-xs font-headline font-black text-black">${stat.val}%${change ? `<small class="block text-[8px] ${changeTextClass}">${changeLabel}</small>` : ''}</span>
       </div>
       <div class="stat-desc-container hidden w-full"></div>
     `;
@@ -1269,7 +1427,7 @@ function renderVibeStats() {
       const baseEl = statItem.querySelector('.stat-bar-base');
       const gainEl = statItem.querySelector('.stat-bar-gain');
       if (baseEl) baseEl.style.width = `${baseline}%`;
-      if (gainEl) gainEl.style.width = `${gain}%`;
+      if (gainEl) gainEl.style.width = `${change}%`;
     }, 50);
   });
 }
@@ -1335,6 +1493,8 @@ function resetToUploadScreen() {
   state.score = 0;
   state.isPatched = false;
   state.apiData = null; // API 데이터 리셋
+  state.currentRecordId = null;
+  state.recordCreatedAt = null;
   dom.imageVersionToggle.classList.add('hidden');
   dom.improvedShoppingCard.classList.add('hidden');
   dom.styleEditOverlay.classList.add('hidden');
@@ -1930,20 +2090,68 @@ function fallbackCopyTextToClipboard(text) {
 // 대신 파일 공유가 가능하면 네이티브 공유 시트를 띄운다 - 사용자가 시트에서 인스타그램을
 // 선택하면 인스타그램 앱 자체의 스토리/게시물 작성 화면으로 사진과 함께 바로 이동한다.
 // 공유가 불가능한 환경(데스크탑 등)에서만 인스타그램 웹으로 폴백한다.
+// 무신사 앱이 설치되어 있으면 앱으로 열고, 없으면(또는 안드로이드가 아니면) 웹으로 이동한다.
+function openMusinsaSearch(url) {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (!isAndroid) {
+    window.open(url, '_blank');
+    return;
+  }
+
+  // 안드로이드 표준 Intent URI: 무신사 앱(com.musinsa.store)이 설치되어 있으면
+  // 앱으로 바로 이동하고, 없으면 S.browser_fallback_url로 지정한 웹 페이지로 이동한다.
+  const withoutScheme = url.replace(/^https?:\/\//, '');
+  const intentUrl = `intent://${withoutScheme}#Intent;scheme=https;package=com.musinsa.store;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+
+  // 앱인토스 웹뷰가 intent:// 를 지원하지 않을 경우를 대비해, 페이지가 계속 보이면
+  // (= 앱으로 전환되지 않았으면) 직접 웹 URL로 폴백한다.
+  const fallbackTimer = setTimeout(() => {
+    console.warn('Musinsa intent link did not switch apps in time, falling back to web.');
+    window.open(url, '_blank');
+  }, 1200);
+  const cancelFallback = () => {
+    clearTimeout(fallbackTimer);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) cancelFallback();
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
+
+  try {
+    window.location.href = intentUrl;
+  } catch (err) {
+    console.warn('Musinsa intent link failed, falling back to web.', err);
+    cancelFallback();
+    window.open(url, '_blank');
+  }
+}
+
+// 공유 관련 기능 디버깅용 - Web Share/파일 공유 지원 여부를 콘솔에 남긴다.
+function logShareCapability(tag) {
+  const canShareFiles = !!(state.shareImageFile && navigator.canShare?.({ files: [state.shareImageFile] }));
+  console.log(`[${tag}] hasShareImageFile=${!!state.shareImageFile} hasNavigatorShare=${!!navigator.share} hasCanShare=${!!navigator.canShare} canShareFiles=${canShareFiles}`);
+  return canShareFiles;
+}
+
 async function openInstagramApp() {
   playSound('select');
-  if (state.shareImageFile && navigator.share && navigator.canShare?.({ files: [state.shareImageFile] })) {
+  const canShareFiles = logShareCapability('openInstagramApp');
+  if (state.shareImageFile && navigator.share && canShareFiles) {
     try {
       await navigator.share({
         files: [state.shareImageFile],
         title: 'FITCHECK! OOTD',
         text: '공유 시트에서 인스타그램을 선택하면 바로 업로드할 수 있어요! 📸',
       });
+      console.log('[openInstagramApp] navigator.share resolved (사용자가 공유를 완료했거나 취소함)');
       return;
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      console.warn('Instagram share via native sheet failed, falling back to web.', err);
+      console.warn('[openInstagramApp] navigator.share failed, falling back to web.', err?.name, err?.message);
     }
+  } else {
+    console.warn('[openInstagramApp] Web Share 파일 공유 미지원 - 웹 폴백으로 이동');
   }
   window.open("https://www.instagram.com/", "_blank");
 }
@@ -1973,6 +2181,7 @@ async function shareSystem() {
 
 // 선택적 이미지 다운로드 실행
 async function downloadShareImage() {
+  console.log('[downloadShareImage] called. hasShareImageDataUrl=', !!state.shareImageDataUrl);
   if (!state.shareImageDataUrl) {
     showToast("다운로드할 이미지가 없습니다.");
     return;
@@ -1980,20 +2189,24 @@ async function downloadShareImage() {
 
   // 앱인토스 웹뷰 등에서는 <a download> 클릭이 씹혀서 갤러리에 저장되지 않는 경우가 많아,
   // 파일 공유가 가능하면 네이티브 공유 시트(사진 앱으로 저장 옵션 포함)를 우선 사용한다.
-  if (state.shareImageFile && navigator.share && navigator.canShare?.({ files: [state.shareImageFile] })) {
+  const canShareFiles = logShareCapability('downloadShareImage');
+  if (state.shareImageFile && navigator.share && canShareFiles) {
     try {
       await navigator.share({
         files: [state.shareImageFile],
         title: 'FITCHECK! OOTD',
         text: '내 OOTD 패션 점수 결과예요! 사진 앱에 저장해보세요. 📸',
       });
+      console.log('[downloadShareImage] navigator.share resolved.');
       showToast("공유 시트에서 '사진에 저장'을 선택해 보관해 주세요! 💾");
       playSound('download');
       return;
     } catch (err) {
       if (err?.name === 'AbortError') return;
-      console.warn('Share-based save failed, falling back to direct download.', err);
+      console.warn('[downloadShareImage] Share-based save failed, falling back to direct download.', err?.name, err?.message);
     }
+  } else {
+    console.warn('[downloadShareImage] Web Share 파일 공유 미지원 - <a download> 폴백으로 이동');
   }
 
   try {
@@ -2003,11 +2216,12 @@ async function downloadShareImage() {
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
+    console.log('[downloadShareImage] <a download> click dispatched.');
 
     showToast("이미지가 기기에 저장되었습니다! 💾");
     playSound('download');
   } catch (err) {
-    console.error("Download failed", err);
+    console.error("[downloadShareImage] Download failed", err);
     showToast("이미지 다운로드에 실패했습니다.");
   }
 }

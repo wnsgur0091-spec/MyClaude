@@ -175,6 +175,15 @@
       <p class="text-[11px] leading-relaxed text-black/70 text-center px-2">
         측정 및 이미지 개선을 실행하면 선택한 사진이 분석을 위해 Google Gemini 또는 Cloudflare Workers AI로 전송됩니다. 사진은 결과 생성 목적으로만 처리되며 FitCheck 서버에 별도로 저장하지 않습니다.
       </p>
+
+      <!-- 최근 패션 체크 기록 (최대 3개, 이미지 카드) -->
+      <div id="recent-checks-card" class="hidden w-full flex flex-col gap-2">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="font-headline text-sm font-black">최근 패션 체크 기록</h3>
+          <span class="text-[9px] font-bold text-on-surface-variant">사진은 이 기기에만 저장돼요 🔒</span>
+        </div>
+        <div id="recent-checks-list" class="flex flex-col gap-2"></div>
+      </div>
     </section>
 
 
