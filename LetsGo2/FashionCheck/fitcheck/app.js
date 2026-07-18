@@ -30,6 +30,10 @@ const state = {
 
   // AI API 결과 임시 보관
   apiData: null,
+
+  // 공유 기능용 임시 보관 데이터
+  shareImageDataUrl: null,
+  shareImageFile: null,
 };
 
 // 2. DOM 요소 셀렉터
@@ -65,8 +69,8 @@ const dom = {
   // 결과 화면
   resultOotdImg: document.getElementById('result-ootd-img'),
   resultTopOverlayTag: document.getElementById('result-top-overlay-tag'),
-  pinAngel: document.getElementById('pin-angel'),
-  pinDevil: document.getElementById('pin-devil'),
+  tagContainer: document.getElementById('tag-container'),
+  tagLinesSvg: document.getElementById('tag-lines-svg'),
   feedbackTooltip: document.getElementById('feedback-tooltip'),
   tooltipTitle: document.getElementById('tooltip-title'),
   tooltipContent: document.getElementById('tooltip-content'),
@@ -101,6 +105,8 @@ const dom = {
   instagramRedirectModal: document.getElementById('instagram-redirect-modal'),
   btnCloseRedirectModal: document.getElementById('btn-close-redirect-modal'),
   btnOpenInstagramApp: document.getElementById('btn-open-instagram-app'),
+  btnShareSystem: document.getElementById('btn-share-system'),
+  btnDownloadImage: document.getElementById('btn-download-image'),
   instagramPreviewImg: document.getElementById('instagram-preview-img'),
 
   // 배틀 모드 관련 추가 DOM
@@ -207,9 +213,8 @@ function bindEvents() {
   // 4. 패션력 측정하기 실행
   dom.btnSubmitScan.addEventListener('click', startScanningSequence);
 
-  // 5. 결과창 Angel/Devil 마커 클릭
-  dom.pinAngel.addEventListener('click', () => showPinTooltip('angel', 0));
-  dom.pinDevil.addEventListener('click', () => showPinTooltip('devil', 0));
+  // 5. 결과창 마진 태그 / 앵커 닷 윈도우 리사이즈 연결선 갱신 바인딩
+  window.addEventListener('resize', drawLines);
   dom.btnCloseTooltip.addEventListener('click', hideTooltip);
 
   // 6. 추천 코디 적용 (Devil 피드백 교체)
@@ -254,6 +259,12 @@ function bindEvents() {
   }
   if (dom.btnOpenInstagramApp) {
     dom.btnOpenInstagramApp.addEventListener('click', openInstagramApp);
+  }
+  if (dom.btnShareSystem) {
+    dom.btnShareSystem.addEventListener('click', shareSystem);
+  }
+  if (dom.btnDownloadImage) {
+    dom.btnDownloadImage.addEventListener('click', downloadShareImage);
   }
 
   // 11. 무신사 리다이렉션 컨펌 모달 연동
@@ -499,6 +510,10 @@ function startScanningSequence() {
         setTimeout(() => {
           // 분석 결과창 연산 및 이동
           calculateFashionResults();
+
+          // 결과 화면 진입 시 상단 헤더 다시 노출 (브랜드 브랜딩 및 구조적 안정성)
+          if (dom.appHeader) dom.appHeader.classList.remove('hidden');
+
           dom.screenLoading.classList.remove('active-screen');
           dom.screenResult.classList.add('active-screen');
           playSound('success');
@@ -540,8 +555,8 @@ function calculateFashionResults() {
     dom.resultOotdImgChallenger.src = state.currentOotdImage;
     
     // 핀 마커 및 툴팁 감춤
-    dom.pinAngel.classList.add('hidden');
-    dom.pinDevil.classList.add('hidden');
+    dom.tagContainer.classList.add('hidden');
+    dom.tagLinesSvg.classList.add('hidden');
     dom.feedbackTooltip.classList.add('hidden');
     if (dom.resultTopOverlayBadge) dom.resultTopOverlayBadge.classList.add('hidden');
     if (dom.pinInteractionGuide) dom.pinInteractionGuide.classList.add('hidden');
@@ -588,28 +603,194 @@ function calculateFashionResults() {
   renderResultDashboard();
 }
 
-// 핀 마커 포지셔닝 및 코디 세팅
+// 핀 마커 포지셔닝 및 코디 세팅 (마진 태그 및 연결선으로 전면 재설계)
 function setupPins() {
   dom.feedbackTooltip.classList.add('hidden');
-  document.querySelectorAll('.dynamic-fit-pin').forEach((pin) => pin.remove());
-  renderMatchPins('angel', state.bestMatches, dom.pinAngel, '😇', 'bg-white');
-  renderMatchPins('devil', state.worstMatches, dom.pinDevil, '😈', 'bg-error-container');
+  
+  // 기존 동적 요소 제거
+  dom.tagContainer.innerHTML = '';
+  dom.tagLinesSvg.innerHTML = '';
+  
+  const bestMatches = state.bestMatches || [];
+  const worstMatches = state.worstMatches || [];
+  
+  // 1. 모든 매칭 요소를 하나의 리스트로 통합하여 가로 위치 기준 분류
+  const leftTags = [];
+  const rightTags = [];
+  
+  bestMatches.forEach((match, idx) => {
+    const item = { ...match, type: 'angel', originalIndex: idx };
+    if (match.x < 50) leftTags.push(item);
+    else rightTags.push(item);
+  });
+  
+  worstMatches.forEach((match, idx) => {
+    const item = { ...match, type: 'devil', originalIndex: idx };
+    if (match.x < 50) leftTags.push(item);
+    else rightTags.push(item);
+  });
+  
+  // 2. Y축 충돌 방지 (겹침 예방) 알고리즘 실행
+  spaceOutTags(leftTags);
+  spaceOutTags(rightTags);
+  
+  // 3. 태그 및 앵커 닷 렌더링
+  const renderTagsForSide = (tags, side) => {
+    tags.forEach((tag) => {
+      // 3.1. 앵커 닷 (Anchor Dot) 생성 및 배치
+      const dot = document.createElement('div');
+      dot.className = `anchor-dot anchor-dot-${tag.type} absolute pointer-events-auto`;
+      dot.style.left = `${tag.x}%`;
+      dot.style.top = `${tag.y}%`;
+      dot.style.transform = 'translate(-50%, -50%)';
+      dot.dataset.type = tag.type;
+      dot.dataset.index = tag.originalIndex;
+      
+      // 3.2. 태그 버튼 생성
+      const button = document.createElement('button');
+      button.className = `margin-tag margin-tag-${tag.type} absolute pointer-events-auto px-2 py-1 flex items-center justify-center gap-1`;
+      
+      // 사용자 요청: "좋은점:", "개선점:" 제거하고 이모지와 키워드만 표시 (예: 😇 블루 셔츠, 😈 블랙 반바지)
+      const emoji = tag.type === 'angel' ? '😇' : '😈';
+      button.innerHTML = `<span>${emoji}</span> <span class="font-sans font-black">${tag.keyword || tag.name.split(':')[0]}</span>`;
+      
+      button.style.top = `${tag.displayY}%`;
+      if (side === 'left') {
+        button.style.left = '4%';
+      } else {
+        button.style.right = '4%';
+      }
+      button.dataset.type = tag.type;
+      button.dataset.index = tag.originalIndex;
+      
+      // 이벤트 바인딩
+      const clickHandler = () => {
+        showPinTooltip(tag.type, tag.originalIndex);
+      };
+      
+      button.addEventListener('click', clickHandler);
+      dot.addEventListener('click', clickHandler);
+      
+      // 호버 연동 (연결선 강조 효과)
+      const hoverIn = () => {
+        const line = dom.tagLinesSvg.querySelector(`[data-tag-line="${tag.type}-${tag.originalIndex}"]`);
+        if (line) line.classList.add('active-line');
+        button.classList.add('active-tag');
+        dot.classList.add('active-dot');
+      };
+      const hoverOut = () => {
+        // 이미 툴팁으로 활성화된 태그가 아니면 호버 해제
+        if (!button.classList.contains('is-selected-active')) {
+          const line = dom.tagLinesSvg.querySelector(`[data-tag-line="${tag.type}-${tag.originalIndex}"]`);
+          if (line && !line.classList.contains('is-selected-active-line')) {
+            line.classList.remove('active-line');
+          }
+          button.classList.remove('active-tag');
+          dot.classList.remove('active-dot');
+        }
+      };
+      
+      button.addEventListener('mouseenter', hoverIn);
+      button.addEventListener('mouseleave', hoverOut);
+      dot.addEventListener('mouseenter', hoverIn);
+      dot.addEventListener('mouseleave', hoverOut);
+      
+      dom.tagContainer.appendChild(dot);
+      dom.tagContainer.appendChild(button);
+    });
+  };
+  
+  renderTagsForSide(leftTags, 'left');
+  renderTagsForSide(rightTags, 'right');
+  
+  dom.tagContainer.classList.remove('hidden');
+  dom.tagLinesSvg.classList.remove('hidden');
+  
+  // 연결선 실시간 렌더링 호출
+  setTimeout(drawLines, 50);
 }
 
-function renderMatchPins(type, matches, basePin, emoji, backgroundClass) {
-  matches.forEach((match, index) => {
-    const pin = index === 0 ? basePin : basePin.cloneNode(true);
-    pin.className = `absolute ${backgroundClass} border-2 border-black rounded-full shadow-[1px_1px_0px_0px_#000] z-20 cursor-pointer text-sm transition-all flex items-center justify-center w-7 h-7 ${index ? 'dynamic-fit-pin' : ''}`;
-    pin.style.top = `${match.y}%`;
-    pin.style.left = `${match.x}%`;
-    pin.dataset.pinType = type;
-    pin.querySelector('span').textContent = emoji;
-    pin.classList.remove('hidden');
-    if (index > 0) {
-      pin.removeAttribute('id');
-      pin.addEventListener('click', () => showPinTooltip(type, index));
-      basePin.parentElement.appendChild(pin);
+// Y축 충돌 방지 정렬 알고리즘
+function spaceOutTags(tags) {
+  if (tags.length === 0) return;
+  // y축 기준으로 정렬
+  tags.sort((a, b) => a.y - b.y);
+  
+  // 각 태그에 최초 displayY 할당
+  tags.forEach(tag => {
+    tag.displayY = tag.y;
+  });
+  
+  const minDist = 12; // 최소 12% 간격 유지
+  for (let i = 1; i < tags.length; i++) {
+    if (tags[i].displayY - tags[i-1].displayY < minDist) {
+      tags[i].displayY = tags[i-1].displayY + minDist;
     }
+  }
+  
+  // 맨 마지막 태그가 하단 마진(90%)을 넘어가면 위로 밀어올림
+  if (tags[tags.length - 1].displayY > 90) {
+    const overflow = tags[tags.length - 1].displayY - 90;
+    for (let i = tags.length - 1; i >= 0; i--) {
+      tags[i].displayY = Math.max(5, tags[i].displayY - overflow);
+      if (i < tags.length - 1 && tags[i+1].displayY - tags[i].displayY < minDist) {
+        tags[i].displayY = tags[i+1].displayY - minDist;
+      }
+    }
+  }
+}
+
+// 실시간 연결선 그리기 (SVG)
+function drawLines() {
+  if (dom.tagContainer.classList.contains('hidden')) return;
+  
+  dom.tagLinesSvg.innerHTML = '';
+  
+  const containerRect = dom.tagContainer.getBoundingClientRect();
+  if (containerRect.width === 0 || containerRect.height === 0) return;
+  
+  const buttons = dom.tagContainer.querySelectorAll('.margin-tag');
+  const dots = dom.tagContainer.querySelectorAll('.anchor-dot');
+  
+  buttons.forEach((btn) => {
+    const type = btn.dataset.type;
+    const index = btn.dataset.index;
+    
+    // 일치하는 앵커 닷 찾기
+    const dot = Array.from(dots).find(d => d.dataset.type === type && d.dataset.index === index);
+    if (!dot) return;
+    
+    const btnRect = btn.getBoundingClientRect();
+    const dotRect = dot.getBoundingClientRect();
+    
+    // 컨테이너 대비 상대 좌표 계산
+    const y1 = (btnRect.top + btnRect.height / 2) - containerRect.top;
+    const y2 = (dotRect.top + dotRect.height / 2) - containerRect.top;
+    
+    let x1;
+    if (btn.style.left) {
+      // 좌측 배치 태그: 태그 버튼의 우측 끝단에서 시작
+      x1 = btnRect.right - containerRect.left;
+    } else {
+      // 우측 배치 태그: 태그 버튼의 좌측 끝단에서 시작
+      x1 = btnRect.left - containerRect.left;
+    }
+    
+    const x2 = (dotRect.left + dotRect.width / 2) - containerRect.left;
+    
+    // SVG Line 요소 생성
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    
+    // 클래스 바인딩 및 커스텀 식별자 저장
+    const isActive = btn.classList.contains('active-tag');
+    line.setAttribute('class', `tag-connection-line tag-connection-line-${type} ${isActive ? 'active-line is-selected-active-line' : ''}`);
+    line.dataset.tagLine = `${type}-${index}`;
+    
+    dom.tagLinesSvg.appendChild(line);
   });
 }
 
@@ -618,11 +799,27 @@ function showPinTooltip(type, index = 0) {
   dom.feedbackTooltip.classList.remove('hidden');
   playSound('select');
 
-  if (type === 'angel') {
-    // 활성 상태 핀 하이라이트 부여
-    dom.pinAngel.classList.add('ring-[5px]', 'ring-black', 'scale-110');
-    dom.pinDevil.classList.remove('ring-[5px]', 'ring-black', 'scale-110');
+  // 모든 태그 및 닷의 하이라이트 상태 초기화
+  dom.tagContainer.querySelectorAll('.margin-tag').forEach(btn => {
+    btn.classList.remove('active-tag', 'is-selected-active');
+  });
+  dom.tagContainer.querySelectorAll('.anchor-dot').forEach(dot => {
+    dot.classList.remove('active-dot');
+  });
+  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach(line => {
+    line.classList.remove('active-line', 'is-selected-active-line');
+  });
 
+  // 현재 선택된 태그와 앵커 닷, 연결선 찾아서 활성화
+  const activeBtn = dom.tagContainer.querySelector(`.margin-tag[data-type="${type}"][data-index="${index}"]`);
+  const activeDot = dom.tagContainer.querySelector(`.anchor-dot[data-type="${type}"][data-index="${index}"]`);
+  const activeLine = dom.tagLinesSvg.querySelector(`[data-tag-line="${type}-${index}"]`);
+
+  if (activeBtn) activeBtn.classList.add('active-tag', 'is-selected-active');
+  if (activeDot) activeDot.classList.add('active-dot');
+  if (activeLine) activeLine.classList.add('active-line', 'is-selected-active-line');
+
+  if (type === 'angel') {
     dom.tooltipTitle.textContent = "😇 BEST MATCH";
     dom.tooltipTitle.className = "font-headline font-black text-xs uppercase px-2 py-0.5 border-[2px] border-black bg-secondary text-black";
     dom.tooltipContent.textContent = state.bestMatches[index].name;
@@ -631,10 +828,6 @@ function showPinTooltip(type, index = 0) {
     dom.linkShopping.classList.add('hidden');
     dom.btnApplyAdvice.classList.add('hidden');
   } else {
-    // 활성 상태 핀 하이라이트 부여
-    dom.pinDevil.classList.add('ring-[5px]', 'ring-black', 'scale-110');
-    dom.pinAngel.classList.remove('ring-[5px]', 'ring-black', 'scale-110');
-
     dom.tooltipTitle.textContent = "😈 WORST MATCH";
     dom.tooltipTitle.className = "font-headline font-black text-xs uppercase px-2 py-0.5 border-[2px] border-black bg-error-container text-black";
     
@@ -668,9 +861,16 @@ function showPinTooltip(type, index = 0) {
 function hideTooltip() {
   dom.feedbackTooltip.classList.add('hidden');
   
-  // 모든 핀 활성 상태 하이라이트 제거
-  dom.pinAngel.classList.remove('ring-[5px]', 'ring-black', 'scale-110');
-  dom.pinDevil.classList.remove('ring-[5px]', 'ring-black', 'scale-110');
+  // 모든 활성 상태 하이라이트 제거
+  dom.tagContainer.querySelectorAll('.margin-tag').forEach(btn => {
+    btn.classList.remove('active-tag', 'is-selected-active');
+  });
+  dom.tagContainer.querySelectorAll('.anchor-dot').forEach(dot => {
+    dot.classList.remove('active-dot');
+  });
+  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach(line => {
+    line.classList.remove('active-line', 'is-selected-active-line');
+  });
 }
 
 
@@ -792,7 +992,8 @@ async function applyStyleAdvice() {
   dom.btnApplyAdvice.disabled = false;
   hideTooltip();
   playSound('upgrade');
-  document.querySelectorAll('[data-pin-type]').forEach((pin) => pin.classList.add('hidden'));
+  dom.tagContainer.classList.add('hidden');
+  dom.tagLinesSvg.classList.add('hidden');
   dom.resultTopOverlayTag.textContent = '개선 이미지';
   dom.imageVersionToggle.classList.remove('hidden');
   dom.improvedShoppingItem.textContent = recommendItemName;
@@ -1126,9 +1327,10 @@ function resetToUploadScreen() {
   dom.analysisErrorPanel.classList.add('hidden');
   
   // 핀 복원 및 클릭 리스너 청소
-  dom.pinDevil.classList.remove('hidden');
-  dom.pinDevil.querySelector('span').textContent = "😈";
-  dom.pinDevil.className = "absolute bg-error-container border-2 border-black rounded-full shadow-[1px_1px_0px_0px_#000] z-20 cursor-pointer text-sm transition-all flex items-center justify-center w-7 h-7";
+  dom.tagContainer.innerHTML = '';
+  dom.tagLinesSvg.innerHTML = '';
+  dom.tagContainer.classList.add('hidden');
+  dom.tagLinesSvg.classList.add('hidden');
   
   // 배틀 상태 해제 및 URL 클리닝
   if (state.isBattleMode) {
@@ -1464,26 +1666,34 @@ async function exportInstagramStory() {
     shareImage.src = state.improvedOotdImage;
     await shareImage.decode();
   }
-  drawFinalShareCard(ctx, canvas, shareImage);
+  drawFinalShareCard(ctx, canvas, shareImage, roastWords);
 
-  // 10. 이미지 다운로드 트리거 및 모달 오픈
-  setTimeout(() => {
+  // 10. 이미지 공유 준비 및 모달 오픈
+  setTimeout(async () => {
     try {
       const dataUrl = canvas.toDataURL('image/png');
+      state.shareImageDataUrl = dataUrl;
       
       // 모달에 미리보기 이미지 설정
       if (dom.instagramPreviewImg) {
         dom.instagramPreviewImg.src = dataUrl;
       }
 
-      const downloadLink = document.createElement('a');
-      downloadLink.download = `fitcheck_ootd_${state.score}.png`;
-      downloadLink.href = dataUrl;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      showToast("업로드한 사진이 이미지 파일로 다운로드되었습니다! 💾");
-      playSound('download');
+      // Canvas -> Blob -> File 변환 (Web Share API용)
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (blob) {
+        const file = new File([blob], `fitcheck_ootd_${state.score}.png`, { type: 'image/png' });
+        state.shareImageFile = file;
+
+        // Web Share API 파일 전송 지원 여부 체크
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          if (dom.btnShareSystem) dom.btnShareSystem.classList.remove('hidden');
+        } else {
+          if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
+        }
+      } else {
+        if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
+      }
 
       // 모달 오버레이 오픈 (사용자 인스타 연동 UX)
       if (dom.instagramRedirectModal) {
@@ -1496,51 +1706,85 @@ async function exportInstagramStory() {
   }, 100);
 }
 
-function drawFinalShareCard(ctx, canvas, image) {
+function drawFinalShareCard(ctx, canvas, image, roastWords) {
   canvas.width = 1080;
   canvas.height = 1920;
-  const background = ctx.createLinearGradient(0, 0, 1080, 1920);
-  background.addColorStop(0, '#eae6ff');
-  background.addColorStop(1, '#ffefea');
-  ctx.fillStyle = background;
-  ctx.fillRect(0, 0, 1080, 1920);
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 24;
-  ctx.strokeRect(12, 12, 1056, 1896);
 
-  ctx.fillStyle = '#000';
-  ctx.textAlign = 'center';
-  ctx.font = '900 70px Montserrat, sans-serif';
-  ctx.fillText('FITCHECK!', 540, 105);
-
-  const frame = { x: 90, y: 155, width: 900, height: 1240 };
-  ctx.fillStyle = '#000';
-  ctx.fillRect(frame.x + 14, frame.y + 14, frame.width, frame.height);
-  ctx.fillStyle = '#eee';
-  ctx.fillRect(frame.x, frame.y, frame.width, frame.height);
+  // 1. 이미지를 캔버스 전체에 꽉 채워 그리기 (cover 방식)
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
-  const scale = Math.min(frame.width / sourceWidth, frame.height / sourceHeight);
-  const width = sourceWidth * scale;
-  const height = sourceHeight * scale;
-  ctx.drawImage(image, frame.x + (frame.width - width) / 2, frame.y + (frame.height - height) / 2, width, height);
-  ctx.lineWidth = 10;
-  ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+  const canvasW = 1080;
+  const canvasH = 1920;
+  const imgRatio = sourceWidth / sourceHeight;
+  const canvasRatio = canvasW / canvasH;
 
-  ctx.fillStyle = '#fff9e6';
-  ctx.fillRect(90, 1445, 900, 235);
-  ctx.lineWidth = 8;
-  ctx.strokeRect(90, 1445, 900, 235);
-  ctx.fillStyle = '#000';
-  ctx.font = '900 72px Montserrat, sans-serif';
-  ctx.fillText(`${state.score.toLocaleString()} / 10K`, 540, 1545);
+  let drawW, drawH, offsetX, offsetY;
+  if (imgRatio > canvasRatio) {
+    drawH = canvasH;
+    drawW = canvasH * imgRatio;
+    offsetX = (canvasW - drawW) / 2;
+    offsetY = 0;
+  } else {
+    drawW = canvasW;
+    drawH = canvasW / imgRatio;
+    offsetX = 0;
+    offsetY = (canvasH - drawH) / 2;
+  }
+
+  // 캔버스 이미지 부드럽게 렌더링 설정
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, offsetX, offsetY, drawW, drawH);
+
+  // 2. 하단 그라데이션 오버레이 (텍스트 가독성을 위해 어둡게 처리)
+  const overlayGrad = ctx.createLinearGradient(0, 1100, 0, 1920);
+  overlayGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  overlayGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.45)');
+  overlayGrad.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
+  ctx.fillStyle = overlayGrad;
+  ctx.fillRect(0, 1100, 1080, 820);
+
+  // 3. 좌측 하단 정보 렌더링 (X 시작점: 90px)
+  const startX = 90;
+
+  // 3-1. OOTD COMBAT POWER (작은 메타 정보)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 30px Montserrat, sans-serif';
+  ctx.fillText('OOTD COMBAT POWER', startX, 1420);
+
+  // 3-2. 패션력 포인트 (메인 텍스트 - 아주 크게)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 84px Montserrat, sans-serif';
+  const scoreText = `${state.score.toLocaleString()} PTS`;
+  ctx.fillText(scoreText, startX, 1520);
+
+  // 3-3. 상황과 티어 (하트 아이콘 포함)
+  ctx.fillStyle = '#ffffff';
   ctx.font = '700 34px Lexend, sans-serif';
-  ctx.fillText(`상황: ${state.selectedTpo}  ·  티어: ${state.tier}`, 540, 1625);
+  const tpoAndTier = `♡ 상황: ${state.selectedTpo}  ·  티어: ${state.tier}`;
+  ctx.fillText(tpoAndTier, startX, 1585);
 
-  ctx.font = '900 34px Montserrat, sans-serif';
-  ctx.fillText('@team.letsgo_fit', 540, 1790);
-  ctx.font = '700 25px Lexend, sans-serif';
-  ctx.fillText('패션을 더 재밌게, 오늘의 OOTD를 함께 체크해요.', 540, 1840);
+  // 3-4. 한줄평 (wrapText로 여러 줄 대응)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.font = '500 28px Lexend, sans-serif';
+  const roast = roastWords || (dom.resultRoastText ? dom.resultRoastText.textContent : '');
+  const lastY = wrapText(ctx, roast, startX, 1645, 900, 42);
+
+  // 3-5. AI 생성 표시 문구 (실제 추천코디 적용 후 AI로 생성했을 때만 한줄평 바로 아래 노출)
+  const isAiGenerated = !state.isBattleMode && state.improvedOotdImage;
+  if (isAiGenerated) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.textAlign = 'left';
+    ctx.font = '500 24px Lexend, sans-serif';
+    ctx.fillText('✨ AI로 생성한 콘텐츠', startX, lastY + 45);
+  }
+
+  // 4. 하단 중앙 브랜드 텍스트 (@team.letsgo_fit)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 30px Montserrat, sans-serif';
+  ctx.fillText('@team.letsgo_fit', 540, 1850);
 }
 
 // 텍스트 여러 줄 정렬 도우미
@@ -1561,6 +1805,7 @@ function wrapText(context, text, x, y, maxWidth, lineHeight) {
     }
   }
   context.fillText(line, x, y);
+  return y;
 }
 
 // ========================================================
@@ -1671,6 +1916,52 @@ function fallbackCopyTextToClipboard(text) {
 function openInstagramApp() {
   playSound('select');
   window.open("https://www.instagram.com/", "_blank");
+}
+
+// 시스템 공유 API 호출 (Web Share API)
+async function shareSystem() {
+  playSound('select');
+  if (!state.shareImageFile) {
+    showToast("공유할 이미지 파일이 준비되지 않았습니다.");
+    return;
+  }
+
+  try {
+    await navigator.share({
+      files: [state.shareImageFile],
+      title: 'FITCHECK! OOTD',
+      text: '내 OOTD 패션 점수를 확인해보세요! 📸',
+    });
+    showToast("공유가 완료되었습니다! ✨");
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error("System share failed", err);
+      showToast("공유 중 오류가 발생했습니다.");
+    }
+  }
+}
+
+// 선택적 이미지 다운로드 실행
+function downloadShareImage() {
+  if (!state.shareImageDataUrl) {
+    showToast("다운로드할 이미지가 없습니다.");
+    return;
+  }
+
+  try {
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `fitcheck_ootd_${state.score}.png`;
+    downloadLink.href = state.shareImageDataUrl;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    showToast("이미지가 기기에 저장되었습니다! 💾");
+    playSound('download');
+  } catch (err) {
+    console.error("Download failed", err);
+    showToast("이미지 다운로드에 실패했습니다.");
+  }
 }
 
 // 실행

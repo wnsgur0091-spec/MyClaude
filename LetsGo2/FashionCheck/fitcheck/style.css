@@ -63,8 +63,7 @@ button.neo-shadow:active:not(:disabled),
 
 /* 예외 사항: 엔젤/데빌 핀 및 아바타 서클만 원형 유지 */
 .rounded-full, 
-#pin-angel, 
-#pin-devil, 
+.anchor-dot, 
 .viewfinder-tech-overlay,
 #app-toast {
   border-radius: 9999px !important;
@@ -129,17 +128,113 @@ section.active-screen {
   display: none !important;
 }
 
-/* 10. Neo-Brutalist Pin Pulse (그림자 맥박 애니메이션으로 인지 가능성 비약적 향상) */
-@keyframes neo-pin-pulse {
+/* 10. 마진 태그 및 연결선 스타일링 (스타일리시하고 은은하게 리뉴얼) */
+.margin-tag {
+  font-family: 'Montserrat', 'Lexend', sans-serif;
+  border-radius: 4px !important; /* 세련되고 부드러운 둥근 모서리 */
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8); /* 가독성 높은 텍스트 그림자 */
+  background: rgba(0, 0, 0, 0.5) !important; /* 은은한 반투명 블랙 백드롭 */
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  padding: 6px 10px !important;
+  transition: all 0.25s ease;
+  box-shadow: none; /* 기존 강한 그림자 제거 */
+}
+
+/* 호버 시 은은하게 밝기 및 테두리 가시성 강화 */
+.margin-tag:hover {
+  transform: scale(1.05) !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.margin-tag:active {
+  transform: scale(0.98) !important;
+}
+
+/* 클릭/활성화 시 스타일리시하게 테두리와 텍스트 색상 강조 */
+.margin-tag.active-tag {
+  transform: scale(1.05) !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.15) !important;
+}
+
+.margin-tag-angel.active-tag {
+  border-color: #4ade80 !important; /* 연두색 강조 */
+  color: #4ade80 !important;
+}
+
+.margin-tag-devil.active-tag {
+  border-color: #f87171 !important; /* 연분홍 강조 */
+  color: #f87171 !important;
+}
+
+/* 앵커 닷 (의상 위 조준점) */
+.anchor-dot {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
+  z-index: 30;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.anchor-dot:hover {
+  transform: scale(1.4) !important;
+}
+
+.anchor-dot.active-dot {
+  transform: scale(1.5) !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6) !important;
+}
+
+.anchor-dot-angel {
+  background-color: #4ade80 !important;
+}
+
+.anchor-dot-devil {
+  background-color: #f87171 !important;
+}
+
+/* 닷 펄스 애니메이션 */
+@keyframes neo-anchor-pulse {
   0%, 100% {
-    box-shadow: 1px 1px 0 0 #000000;
+    transform: scale(1);
+    opacity: 0.8;
   }
   50% {
-    box-shadow: 2px 2px 0 0 #000000;
-    transform: scale(1.02) translate(-0.25px, -0.25px);
+    transform: scale(1.2);
+    opacity: 1;
   }
 }
 
-#pin-angel, #pin-devil {
-  animation: neo-pin-pulse 2.2s infinite ease-in-out;
+.anchor-dot {
+  animation: neo-anchor-pulse 2s infinite ease-in-out;
+}
+
+/* SVG Line 스타일: 얇고 고급스러운 흰색 실선 */
+.tag-connection-line {
+  stroke: #ffffff;
+  stroke-width: 1.2;
+  opacity: 0.5;
+  transition: all 0.25s ease;
+}
+
+.tag-connection-line.active-line {
+  stroke-width: 2.2;
+  opacity: 1;
+}
+
+.tag-connection-line-angel.active-line {
+  stroke: #4ade80; /* 활성 시 연두색 실선 */
+}
+
+.tag-connection-line-devil.active-line {
+  stroke: #f87171; /* 활성 시 연분홍 실선 */
 }

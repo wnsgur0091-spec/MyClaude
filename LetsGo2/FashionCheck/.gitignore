@@ -9,5 +9,8 @@ dist/
 Thumbs.db
 fitcheck.zip
 
+# Test folder
+test-gemini-image/
+
 .granite
 *.ait

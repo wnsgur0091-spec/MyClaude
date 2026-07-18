@@ -237,21 +237,17 @@
             </div>
           </div>
 
-          <!-- Angel Marker (😇) -->
-          <div id="pin-angel" class="absolute bg-white border-2 border-black rounded-full shadow-[1px_1px_0px_0px_#000] z-20 cursor-pointer text-sm transition-all flex items-center justify-center w-7 h-7">
-            <span>😇</span>
-          </div>
+          <!-- 연결선 SVG 레이어 -->
+          <svg id="tag-lines-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
 
-          <!-- Devil Marker (😈) -->
-          <div id="pin-devil" class="absolute bg-error-container border-2 border-black rounded-full shadow-[1px_1px_0px_0px_#000] z-20 cursor-pointer text-sm transition-all flex items-center justify-center w-7 h-7">
-            <span>😈</span>
-          </div>
+          <!-- 좌우 마진 태그 컨테이너 -->
+          <div id="tag-container" class="absolute inset-0 z-20 pointer-events-none"></div>
 
         </div>
 
         <!-- 이미지 바로 아래에 배치하는 친절한 인터랙션 가이드 팁 -->
-        <div id="pin-interaction-guide" class="w-full text-center py-2.5 bg-white border-b-[3px] border-black text-[10px] font-black text-on-surface-variant flex items-center justify-center gap-1 select-none">
-          <span class="animate-bounce text-xs">💡</span> OOTD 위의 😇 베스트 1개 / 😈 개선 포인트를 탭해 보세요!
+        <div id="pin-interaction-guide" class="w-full text-center py-3 bg-[#fbfbfe] border-b-[2px] border-black text-[10px] font-bold tracking-wider text-black/60 flex items-center justify-center gap-1.5 select-none uppercase">
+          <span class="animate-pulse text-xs">✨</span> 의상 태그를 탭하여 <span class="text-black">😇 베스트 아이템</span>과 <span class="text-black">😈 보완 제안</span>을 탐색해 보세요.
         </div>
 
         <div id="improved-shopping-card" class="hidden w-full bg-secondary border-b-[3px] border-black p-4">
@@ -382,16 +378,26 @@
         <img id="instagram-preview-img" src="" alt="Instagram Story Preview" class="h-full object-contain" />
       </div>
       <p class="text-xs font-bold text-black leading-relaxed">
-        업로드한 사진이 기기에 다운로드되었습니다! 📸<br>
-        갤러리에서 이미지를 선택하여 인스타 스토리에 바로 공유할 수 있습니다.
+        생성된 카드를 인스타그램 스토리에 공유해보세요! 📸
       </p>
       <div class="bg-tertiary border-[2px] border-black p-3 text-[10px] font-bold text-black">
-        💡 Tip: 인스타 스토리를 열고 화면을 위로 스와이프하면 방금 다운로드된 카드를 쉽게 불러올 수 있습니다.
+        💡 Tip: 모바일 기기에서는 바로 공유가 가능하며, 컴퓨터에서는 이미지를 저장한 후 인스타에 업로드할 수 있습니다.
       </div>
-      <div class="flex gap-2 mt-2">
-        <button id="btn-open-instagram-app" class="flex-1 bg-primary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
-          인스타그램 열기 <span class="material-symbols-outlined text-xs">rocket_launch</span>
+      <div class="flex flex-col gap-2 mt-2">
+        <!-- 모바일 시스템 공유 버튼 (Web Share API 대응) -->
+        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5 hidden">
+          스토리로 바로 공유 <span class="material-symbols-outlined text-xs">share</span>
         </button>
+        <div class="flex gap-2 w-full">
+          <!-- 기기 저장 버튼 -->
+          <button id="btn-download-image" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+            이미지 저장 <span class="material-symbols-outlined text-xs">download</span>
+          </button>
+          <!-- 인스타그램 열기 버튼 -->
+          <button id="btn-open-instagram-app" class="flex-1 bg-primary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+            인스타그램 열기 <span class="material-symbols-outlined text-xs">rocket_launch</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
