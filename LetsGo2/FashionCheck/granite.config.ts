@@ -5,8 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '핏배틀',
     primaryColor: '#3182F6',
-    // TODO: 토스 개발자 콘솔에 앱 등록 후 업로드한 아이콘 이미지 URL로 교체
-    icon: 'https://example.com/fitbattle-icon.png',
+    icon: 'https://static.toss.im/appsintoss/60759/3a40644b-0988-47c1-a00d-58b7a44180a5.png',
   },
   permissions: [
     { name: 'photos', access: 'read' },
