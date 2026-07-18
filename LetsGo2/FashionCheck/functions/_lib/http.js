@@ -1,8 +1,17 @@
-export const json = (data, status = 200) => new Response(JSON.stringify(data), {
+const API_SECURITY_HEADERS = Object.freeze({
+  'Cache-Control': 'no-store',
+  'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+});
+
+export const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status,
   headers: {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
+    ...API_SECURITY_HEADERS,
+    ...headers,
   },
 });
 
