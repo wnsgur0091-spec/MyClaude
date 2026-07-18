@@ -2247,11 +2247,27 @@ async function shareSystem() {
   }
 }
 
+// data: URL을 fetch() 없이 직접 Blob으로 변환 (일부 웹뷰는 data: URI에 대한
+// fetch()를 제대로 지원하지 않아서, atob 기반 수동 디코딩으로 우회한다)
+function dataUrlToBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',');
+  const mimeMatch = header.match(/data:(.*?);base64/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'image/png';
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
 // 선택적 이미지 다운로드 실행
 // 참고: 이 웹뷰 환경엔 Web Share API 자체가 없음(navigator.share === undefined)이
 // 로그로 확인되어, 공유 시트 경유 방식은 포기하고 blob URL 다운로드로 시도한다.
 async function downloadShareImage() {
-  remoteLog('downloadShareImage', { branch: 'called', hasShareImageDataUrl: !!state.shareImageDataUrl });
+  remoteLog('downloadShareImage', {
+    branch: 'called',
+    hasShareImageDataUrl: !!state.shareImageDataUrl,
+    dataUrlLength: state.shareImageDataUrl?.length || 0,
+  });
   if (!state.shareImageDataUrl) {
     showToast("다운로드할 이미지가 없습니다.");
     return;
@@ -2259,9 +2275,12 @@ async function downloadShareImage() {
 
   let objectUrl;
   try {
-    // data: URI보다 blob: URL이 일부 웹뷰의 다운로드 처리기와 더 잘 맞는 경우가 있어 우선 시도.
-    const blob = await (await fetch(state.shareImageDataUrl)).blob();
+    const blob = dataUrlToBlob(state.shareImageDataUrl);
+    remoteLog('downloadShareImage', { branch: 'blob-created', blobSize: blob.size, blobType: blob.type });
+
     objectUrl = URL.createObjectURL(blob);
+    remoteLog('downloadShareImage', { branch: 'object-url-created', objectUrl });
+
     const downloadLink = document.createElement('a');
     downloadLink.download = `fitcheck_ootd_${state.score}.png`;
     downloadLink.href = objectUrl;
@@ -2272,8 +2291,9 @@ async function downloadShareImage() {
 
     showToast("이미지가 기기에 저장되었습니다! 갤러리/다운로드 폴더를 확인해 주세요. 💾");
     playSound('download');
+    remoteLog('downloadShareImage', { branch: 'toast-and-sound-called' });
   } catch (err) {
-    remoteLog('downloadShareImage', { branch: 'blob-download-threw', message: err?.message });
+    remoteLog('downloadShareImage', { branch: 'blob-download-threw', message: err?.message, stack: err?.stack });
     showToast("이미지 다운로드에 실패했습니다.");
   } finally {
     if (objectUrl) setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
