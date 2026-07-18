@@ -8,3 +8,6 @@ dist/
 .DS_Store
 Thumbs.db
 fitcheck.zip
+
+.granite
+*.ait
