@@ -63,7 +63,7 @@ button.neo-shadow:active:not(:disabled),
 
 /* 예외 사항: 엔젤/데빌 핀 및 아바타 서클만 원형 유지 */
 .rounded-full, 
-.anchor-dot,
+.anchor-dot, 
 .viewfinder-tech-overlay,
 #app-toast {
   border-radius: 9999px !important;
@@ -97,25 +97,6 @@ section.active-screen {
   );
 }
 
-.stat-row {
-  display: grid;
-  grid-template-columns: minmax(8.25rem, auto) minmax(4rem, 1fr) 4.5rem;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-@media (max-width: 390px) {
-  .stat-row {
-    grid-template-columns: minmax(7.75rem, auto) minmax(3rem, 1fr) 4.25rem;
-    gap: 0.375rem;
-  }
-
-  .stat-name {
-    font-size: 0.65rem;
-    letter-spacing: -0.035em;
-  }
-}
-
 /* 7. 로딩 및 스캔 애니메이션 */
 @keyframes pulse-status {
   0%, 100% { opacity: 0.7; }
@@ -127,7 +108,7 @@ section.active-screen {
 }
 
 /* 8. 툴팁 말풍선 오버레이 */
-#feedback-tooltip.tooltip-reveal {
+#feedback-tooltip {
   animation: slide-in-tooltip 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -147,69 +128,113 @@ section.active-screen {
   display: none !important;
 }
 
-/* 10. 이미지 좌표와 연결되는 좌우 마진 태그 */
+/* 10. 마진 태그 및 연결선 스타일링 (스타일리시하고 은은하게 리뉴얼) */
 .margin-tag {
-  border-radius: 4px !important;
-  max-width: 42%;
-  padding: 6px 10px !important;
-  overflow: hidden;
-  color: #fff;
+  font-family: 'Montserrat', 'Lexend', sans-serif;
+  border-radius: 4px !important; /* 세련되고 부드러운 둥근 모서리 */
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: rgba(0, 0, 0, 0.55) !important;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8); /* 가독성 높은 텍스트 그림자 */
+  background: rgba(0, 0, 0, 0.5) !important; /* 은은한 반투명 블랙 백드롭 */
   backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+  padding: 6px 10px !important;
+  transition: all 0.25s ease;
+  box-shadow: none; /* 기존 강한 그림자 제거 */
 }
 
-.margin-tag:hover,
+/* 호버 시 은은하게 밝기 및 테두리 가시성 강화 */
+.margin-tag:hover {
+  transform: scale(1.05) !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.margin-tag:active {
+  transform: scale(0.98) !important;
+}
+
+/* 클릭/활성화 시 스타일리시하게 테두리와 텍스트 색상 강조 */
 .margin-tag.active-tag {
   transform: scale(1.05) !important;
-  background: rgba(0, 0, 0, 0.82) !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.15) !important;
 }
 
-.margin-tag-angel.active-tag { border-color: #4ade80 !important; color: #4ade80; }
-.margin-tag-devil.active-tag { border-color: #f87171 !important; color: #f87171; }
+.margin-tag-angel.active-tag {
+  border-color: #4ade80 !important; /* 연두색 강조 */
+  color: #4ade80 !important;
+}
 
+.margin-tag-devil.active-tag {
+  border-color: #f87171 !important; /* 연분홍 강조 */
+  color: #f87171 !important;
+}
+
+/* 앵커 닷 (의상 위 조준점) */
 .anchor-dot {
-  width: 10px;
-  height: 10px;
-  padding: 0;
-  transform: translate(-50%, -50%);
-  border: 1.5px solid #fff !important;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.55) !important;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5) !important;
   z-index: 30;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.25s ease;
+}
+
+.anchor-dot:hover {
+  transform: scale(1.4) !important;
+}
+
+.anchor-dot.active-dot {
+  transform: scale(1.5) !important;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6) !important;
+}
+
+.anchor-dot-angel {
+  background-color: #4ade80 !important;
+}
+
+.anchor-dot-devil {
+  background-color: #f87171 !important;
+}
+
+/* 닷 펄스 애니메이션 */
+@keyframes neo-anchor-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+.anchor-dot {
   animation: neo-anchor-pulse 2s infinite ease-in-out;
 }
 
-.anchor-dot:hover,
-.anchor-dot.active-dot {
-  animation: none;
-  transform: translate(-50%, -50%) scale(1.5);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.7) !important;
-}
-
-.anchor-dot-angel { background-color: #4ade80 !important; }
-.anchor-dot-devil { background-color: #f87171 !important; }
-
-@keyframes neo-anchor-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
-}
-
+/* SVG Line 스타일: 얇고 고급스러운 흰색 실선 */
 .tag-connection-line {
-  stroke: #fff;
+  stroke: #ffffff;
   stroke-width: 1.2;
-  opacity: 0.55;
-  transition: opacity 0.2s ease, stroke-width 0.2s ease;
+  opacity: 0.5;
+  transition: all 0.25s ease;
 }
 
-.tag-connection-line.active-line { stroke-width: 2.2; opacity: 1; }
-.tag-connection-line-angel.active-line { stroke: #4ade80; }
-.tag-connection-line-devil.active-line { stroke: #f87171; }
+.tag-connection-line.active-line {
+  stroke-width: 2.2;
+  opacity: 1;
+}
+
+.tag-connection-line-angel.active-line {
+  stroke: #4ade80; /* 활성 시 연두색 실선 */
+}
+
+.tag-connection-line-devil.active-line {
+  stroke: #f87171; /* 활성 시 연분홍 실선 */
+}

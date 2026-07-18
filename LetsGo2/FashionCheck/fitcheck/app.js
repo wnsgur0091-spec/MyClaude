@@ -24,29 +24,17 @@ const state = {
   opponentScore: 0,
   opponentTpo: '일상',
 
-  // 현재 선택한 무신사 검색 아이템
+  // 무신사 연계 팝업용 임시 보관 상태
   targetMusinsaUrl: '',
   targetMusinsaItem: '독일군 스니커즈',
 
   // AI API 결과 임시 보관
   apiData: null,
-  improvementChanges: [],
-  originalWorstMatches: [],
-  achievement: null,
-  currentRecordId: null,
-  selectedWorstMatchIndex: 0,
+
+  // 공유 기능용 임시 보관 데이터
   shareImageDataUrl: null,
   shareImageFile: null,
 };
-
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-const MAX_ANALYSIS_IMAGE_DIMENSION = 1600;
-const ALLOWED_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const RECENT_RESULTS_KEY = 'fitcheck.recentResults.v1';
-const RECENT_IMAGES_DB_NAME = 'fitcheck-recent-images';
-const RECENT_IMAGES_STORE = 'images';
-const BLOCKED_STYLE_EDIT_PATTERN = /(귀걸이|이어링|earrings?|반지|손가락\s*링|finger\s*ring|피어싱|piercings?)/i;
-const EDITABLE_STYLE_ITEM_TYPES = new Set(['clothing', 'bag', 'belt', 'shoes', 'watch', 'fashion-accessory']);
 
 // 2. DOM 요소 셀렉터
 const dom = {
@@ -69,16 +57,7 @@ const dom = {
   imageFileInput: document.getElementById('image-file-input'),
   tpoChips: document.querySelectorAll('.tpo-chip'),
   btnSubmitScan: document.getElementById('btn-submit-scan'),
-  recentResultsCard: document.getElementById('recent-results-card'),
-  recentResultsList: document.getElementById('recent-results-list'),
-  recentResultDetailModal: document.getElementById('recent-result-detail-modal'),
-  btnCloseRecentResultDetail: document.getElementById('btn-close-recent-result-detail'),
-  recentDetailTitle: document.getElementById('recent-detail-title'),
-  recentDetailMeta: document.getElementById('recent-detail-meta'),
-  recentDetailBeforeImg: document.getElementById('recent-detail-before-img'),
-  recentDetailAfterImg: document.getElementById('recent-detail-after-img'),
-  recentDetailAfterWrap: document.getElementById('recent-detail-after-wrap'),
-
+  
   // 로딩 화면
   loadingTitle: document.getElementById('loading-title'),
   loadingStatusText: document.getElementById('loading-status-text'),
@@ -95,13 +74,6 @@ const dom = {
   feedbackTooltip: document.getElementById('feedback-tooltip'),
   tooltipTitle: document.getElementById('tooltip-title'),
   tooltipContent: document.getElementById('tooltip-content'),
-  tooltipStep: document.getElementById('tooltip-step'),
-  tooltipRecommendation: document.getElementById('tooltip-recommendation'),
-  tooltipRecommendItem: document.getElementById('tooltip-recommend-item'),
-  tooltipReasonTags: document.getElementById('tooltip-reason-tags'),
-  tooltipRecommendReason: document.getElementById('tooltip-recommend-reason'),
-  styleEditPolicyNote: document.getElementById('style-edit-policy-note'),
-  btnNextImprovement: document.getElementById('btn-next-improvement'),
   btnCloseTooltip: document.getElementById('btn-close-tooltip'),
   linkShopping: document.getElementById('link-shopping'),
   btnApplyAdvice: document.getElementById('btn-apply-advice'),
@@ -117,17 +89,9 @@ const dom = {
   improvedShoppingItem: document.getElementById('improved-shopping-item'),
   improvedShoppingDescription: document.getElementById('improved-shopping-description'),
   improvedShoppingLink: document.getElementById('improved-shopping-link'),
-  improvementChangeSummary: document.getElementById('improvement-change-summary'),
-  improvementChangeItems: document.getElementById('improvement-change-items'),
-  remainingRecommendations: document.getElementById('remaining-recommendations'),
-  remainingRecommendationItems: document.getElementById('remaining-recommendation-items'),
-  pinInteractionText: document.getElementById('pin-interaction-text'),
   
   resultScoreNum: document.getElementById('result-score-num'),
   resultTierName: document.getElementById('result-tier-name'),
-  achievementCard: document.getElementById('achievement-card'),
-  achievementTitle: document.getElementById('achievement-title'),
-  achievementDescription: document.getElementById('achievement-description'),
   resultRoastText: document.getElementById('result-roast-text'),
   vibeCheckTitle: document.getElementById('vibe-check-title'),
   statsContainer: document.getElementById('stats-container'),
@@ -175,7 +139,6 @@ const dom = {
 
 function init() {
   bindEvents();
-  renderRecentResults();
   if (localStorage.getItem('fitcheck.fullBodyGuideSeen') !== '1') {
     dom.firstVisitGuide.classList.remove('hidden');
   }
@@ -227,7 +190,6 @@ function checkBattleQueryParameters() {
 
 // 이벤트 바인딩
 function bindEvents() {
-  dom.appHeader.querySelector('h1')?.addEventListener('click', () => window.location.reload());
   dom.btnCloseFirstVisitGuide.addEventListener('click', () => {
     localStorage.setItem('fitcheck.fullBodyGuideSeen', '1');
     dom.firstVisitGuide.classList.add('hidden');
@@ -251,10 +213,9 @@ function bindEvents() {
   // 4. 패션력 측정하기 실행
   dom.btnSubmitScan.addEventListener('click', startScanningSequence);
 
-  // 5. 결과창 마진 태그 연결선 갱신
+  // 5. 결과창 마진 태그 / 앵커 닷 윈도우 리사이즈 연결선 갱신 바인딩
   window.addEventListener('resize', drawLines);
   dom.btnCloseTooltip.addEventListener('click', hideTooltip);
-  dom.btnNextImprovement.addEventListener('click', showNextImprovement);
 
   // 6. 추천 코디 적용 (Devil 피드백 교체)
   dom.btnApplyAdvice.addEventListener('click', applyStyleAdvice);
@@ -302,36 +263,38 @@ function bindEvents() {
   if (dom.btnShareSystem) {
     dom.btnShareSystem.addEventListener('click', shareSystem);
   }
-  if (dom.btnCloseRecentResultDetail) {
-    dom.btnCloseRecentResultDetail.addEventListener('click', () => {
-      dom.recentResultDetailModal.classList.add('hidden');
-    });
-  }
   if (dom.btnDownloadImage) {
     dom.btnDownloadImage.addEventListener('click', downloadShareImage);
   }
 
-  // 11. 무신사 이동 확인 모달 연동
+  // 11. 무신사 리다이렉션 컨펌 모달 연동
   if (dom.linkShopping) {
-    dom.linkShopping.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (dom.musinsaItemName) dom.musinsaItemName.textContent = state.targetMusinsaItem;
-      dom.musinsaRedirectModal?.classList.remove('hidden');
+    dom.linkShopping.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (dom.musinsaItemName) {
+        dom.musinsaItemName.textContent = state.targetMusinsaItem;
+      }
+      if (dom.musinsaRedirectModal) {
+        dom.musinsaRedirectModal.classList.remove('hidden');
+      }
     });
   }
-  dom.btnCloseMusinsaModal?.addEventListener('click', () => {
-    dom.musinsaRedirectModal?.classList.add('hidden');
-  });
-  dom.btnCloseMusinsaModalCancel?.addEventListener('click', () => {
-    dom.musinsaRedirectModal?.classList.add('hidden');
-  });
-  dom.btnConfirmMusinsaRedirect?.addEventListener('click', () => {
-    if (state.targetMusinsaUrl) {
-      window.open(state.targetMusinsaUrl, '_blank', 'noopener,noreferrer');
-    }
-    dom.musinsaRedirectModal?.classList.add('hidden');
-  });
-
+  if (dom.btnCloseMusinsaModal) {
+    dom.btnCloseMusinsaModal.addEventListener('click', () => {
+      dom.musinsaRedirectModal.classList.add('hidden');
+    });
+  }
+  if (dom.btnCloseMusinsaModalCancel) {
+    dom.btnCloseMusinsaModalCancel.addEventListener('click', () => {
+      dom.musinsaRedirectModal.classList.add('hidden');
+    });
+  }
+  if (dom.btnConfirmMusinsaRedirect) {
+    dom.btnConfirmMusinsaRedirect.addEventListener('click', () => {
+      window.open(state.targetMusinsaUrl, '_blank');
+      dom.musinsaRedirectModal.classList.add('hidden');
+    });
+  }
 }
 
 // ========================================================
@@ -361,70 +324,30 @@ function selectTpo(tpo) {
 }
 
 // 커스텀 이미지 파일 업로드 처리
-async function handleCustomFileUpload(e) {
+function handleCustomFileUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
-    rejectImageUpload('JPG, PNG, WEBP 형식의 사진만 업로드할 수 있어요. 🖼️');
-    return;
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    rejectImageUpload('사진 용량이 너무 커요. 10MB 이하의 사진을 선택해 주세요. 📦');
-    return;
-  }
+  const reader = new FileReader();
+  reader.onload = async function(event) {
+    // 폰 카메라 원본 사진은 서버의 base64 길이 제한(4.5MB 문자)을 넘기기 쉬워서
+    // 분석에 충분한 해상도로 리사이즈/압축 후 사용한다.
+    const resizedDataUrl = await resizeImageForUpload(event.target.result);
+    state.currentOotdImage = resizedDataUrl;
+    state.originalOotdImage = resizedDataUrl;
+    state.improvedOotdImage = null;
 
-  try {
-    const optimizedImage = await optimizeImageBlob(file);
-    setUploadedImage(optimizedImage);
+    // 미리보기 렌더링
+    dom.uploadPreviewImg.src = state.currentOotdImage;
+    dom.uploadPlaceholder.classList.add('hidden');
+    dom.uploadPreviewContainer.classList.remove('hidden');
+
+    // 측정 버튼 활성화
+    dom.btnSubmitScan.disabled = false;
     showToast("OOTD 사진이 등록되었습니다! 📸");
     playSound('select');
-  } catch (error) {
-    console.warn('Image upload validation failed.', error);
-    rejectImageUpload('사진을 읽을 수 없어요. 손상되지 않은 다른 사진을 선택해 주세요. 🧩');
-  }
-}
-
-async function optimizeImageBlob(blob) {
-  let objectUrl;
-  try {
-    objectUrl = URL.createObjectURL(blob);
-    const image = new Image();
-    image.src = objectUrl;
-    await image.decode();
-    if (!image.naturalWidth || !image.naturalHeight) throw new Error('Invalid image dimensions.');
-
-    const scale = Math.min(1, MAX_ANALYSIS_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Canvas is unavailable.');
-    context.imageSmoothingEnabled = true;
-    context.imageSmoothingQuality = 'high';
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.88);
-  } finally {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-  }
-}
-
-function setUploadedImage(imageDataUrl) {
-  state.currentOotdImage = imageDataUrl;
-  state.originalOotdImage = imageDataUrl;
-  state.improvedOotdImage = null;
-  dom.uploadPreviewImg.src = imageDataUrl;
-  dom.uploadPlaceholder.classList.add('hidden');
-  dom.uploadPreviewContainer.classList.remove('hidden');
-  dom.btnSubmitScan.disabled = false;
-}
-
-function rejectImageUpload(message) {
-  dom.imageFileInput.value = '';
-  if (!state.currentOotdImage) {
-    dom.btnSubmitScan.disabled = true;
-  }
-  showToast(message);
+  };
+  reader.readAsDataURL(file);
 }
 
 // 업로드 이미지 리사이즈/압축 (분석 API 전송용)
@@ -447,13 +370,13 @@ async function resizeImageForUpload(dataUrl) {
 }
 
 // API 호출 및 다중 폴백 로직
-async function callAnalyzeAPI(imageBase64, tpo, improvementContext = null, comparisonImageBase64 = null) {
+async function callAnalyzeAPI(imageBase64, tpo, improvementContext = null) {
   let response;
   try {
     response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64, tpo, improvementContext, comparisonImageBase64 }),
+      body: JSON.stringify({ imageBase64, tpo, improvementContext }),
     });
   } catch (error) {
     throw new ApiRequestError(
@@ -587,6 +510,10 @@ function startScanningSequence() {
         setTimeout(() => {
           // 분석 결과창 연산 및 이동
           calculateFashionResults();
+
+          // 결과 화면 진입 시 상단 헤더 다시 노출 (브랜드 브랜딩 및 구조적 안정성)
+          if (dom.appHeader) dom.appHeader.classList.remove('hidden');
+
           dom.screenLoading.classList.remove('active-screen');
           dom.screenResult.classList.add('active-screen');
           playSound('success');
@@ -603,8 +530,6 @@ function startScanningSequence() {
 // 3단계: 결과창 연산
 function calculateFashionResults() {
   state.isPatched = false;
-  state.improvementChanges = [];
-  dom.improvementChangeSummary.classList.add('hidden');
   if (!state.apiData) throw new Error('Validated AI analysis data is required.');
 
   state.score = state.apiData.score;
@@ -612,10 +537,6 @@ function calculateFashionResults() {
   state.tier = state.apiData.tier;
   state.bestMatches = state.apiData.bestMatches;
   state.worstMatches = state.apiData.worstMatches;
-  state.originalWorstMatches = state.worstMatches.map((match) => ({
-    ...match,
-    reasonTags: [...(match.reasonTags || [])],
-  }));
   state.bestMatch = state.bestMatches[0];
   state.worstMatch = state.worstMatches[0];
   state.musinsaQuery = state.apiData.musinsaQuery;
@@ -624,10 +545,7 @@ function calculateFashionResults() {
     name,
     val,
     originalVal: val,
-    higherIsBetter: getStatMetadata(name).higherIsBetter,
   }));
-  updateAchievement();
-  saveRecentResult({ improved: false });
 
   // 비주얼 이미지 및 배틀 레이아웃 세팅
   if (state.isBattleMode) {
@@ -636,7 +554,7 @@ function calculateFashionResults() {
     dom.battleVersusContainer.classList.remove('hidden');
     dom.resultOotdImgChallenger.src = state.currentOotdImage;
     
-    // 마진 태그 및 툴팁 감춤
+    // 핀 마커 및 툴팁 감춤
     dom.tagContainer.classList.add('hidden');
     dom.tagLinesSvg.classList.add('hidden');
     dom.feedbackTooltip.classList.add('hidden');
@@ -675,7 +593,7 @@ function calculateFashionResults() {
     dom.battleVersusContainer.classList.add('hidden');
     dom.resultOotdImg.src = state.currentOotdImage;
     
-    // Angel & Devil 마진 태그 배치
+    // Angel & Devil 핀 배치 및 내용 세팅
     setupPins();
     if (dom.resultTopOverlayBadge) dom.resultTopOverlayBadge.classList.remove('hidden');
     if (dom.pinInteractionGuide) dom.pinInteractionGuide.classList.remove('hidden');
@@ -685,121 +603,193 @@ function calculateFashionResults() {
   renderResultDashboard();
 }
 
-// 좌우 마진 태그와 이미지 좌표 연결선 렌더링
+// 핀 마커 포지셔닝 및 코디 세팅 (마진 태그 및 연결선으로 전면 재설계)
 function setupPins() {
   dom.feedbackTooltip.classList.add('hidden');
-  dom.tagContainer.textContent = '';
-  dom.tagLinesSvg.textContent = '';
-
+  
+  // 기존 동적 요소 제거
+  dom.tagContainer.innerHTML = '';
+  dom.tagLinesSvg.innerHTML = '';
+  
+  const bestMatches = state.bestMatches || [];
+  const worstMatches = state.worstMatches || [];
+  
+  // 1. 모든 매칭 요소를 하나의 리스트로 통합하여 가로 위치 기준 분류
   const leftTags = [];
   const rightTags = [];
-  const collect = (matches, type) => {
-    (matches || []).forEach((match, originalIndex) => {
-      const tag = { ...match, type, originalIndex };
-      (match.x < 50 ? leftTags : rightTags).push(tag);
-    });
-  };
-  collect(state.bestMatches, 'angel');
-  collect(state.worstMatches, 'devil');
+  
+  bestMatches.forEach((match, idx) => {
+    const item = { ...match, type: 'angel', originalIndex: idx };
+    if (match.x < 50) leftTags.push(item);
+    else rightTags.push(item);
+  });
+  
+  worstMatches.forEach((match, idx) => {
+    const item = { ...match, type: 'devil', originalIndex: idx };
+    if (match.x < 50) leftTags.push(item);
+    else rightTags.push(item);
+  });
+  
+  // 2. Y축 충돌 방지 (겹침 예방) 알고리즘 실행
   spaceOutTags(leftTags);
   spaceOutTags(rightTags);
-
+  
+  // 3. 태그 및 앵커 닷 렌더링
   const renderTagsForSide = (tags, side) => {
     tags.forEach((tag) => {
-      const dot = document.createElement('button');
-      dot.type = 'button';
+      // 3.1. 앵커 닷 (Anchor Dot) 생성 및 배치
+      const dot = document.createElement('div');
       dot.className = `anchor-dot anchor-dot-${tag.type} absolute pointer-events-auto`;
       dot.style.left = `${tag.x}%`;
       dot.style.top = `${tag.y}%`;
+      dot.style.transform = 'translate(-50%, -50%)';
       dot.dataset.type = tag.type;
-      dot.dataset.index = String(tag.originalIndex);
-      dot.setAttribute('aria-label', tag.type === 'angel' ? '베스트 아이템 설명 열기' : '개선 아이템 설명 열기');
-
+      dot.dataset.index = tag.originalIndex;
+      
+      // 3.2. 태그 버튼 생성
       const button = document.createElement('button');
-      button.type = 'button';
-      button.className = `margin-tag margin-tag-${tag.type} absolute pointer-events-auto flex items-center justify-center gap-1`;
+      button.className = `margin-tag margin-tag-${tag.type} absolute pointer-events-auto px-2 py-1 flex items-center justify-center gap-1`;
+      
+      // 사용자 요청: "좋은점:", "개선점:" 제거하고 이모지와 키워드만 표시 (예: 😇 블루 셔츠, 😈 블랙 반바지)
+      const emoji = tag.type === 'angel' ? '😇' : '😈';
+      button.innerHTML = `<span>${emoji}</span> <span class="font-sans font-black">${tag.keyword || tag.name.split(':')[0]}</span>`;
+      
       button.style.top = `${tag.displayY}%`;
-      button.style[side] = '4%';
+      if (side === 'left') {
+        button.style.left = '4%';
+      } else {
+        button.style.right = '4%';
+      }
       button.dataset.type = tag.type;
-      button.dataset.index = String(tag.originalIndex);
-
-      const emoji = document.createElement('span');
-      emoji.textContent = tag.type === 'angel' ? '😇' : '😈';
-      const keyword = document.createElement('span');
-      keyword.className = 'font-sans font-black';
-      keyword.textContent = tag.keyword || tag.name.split(':')[0];
-      button.append(emoji, keyword);
-
-      const selectTag = () => showPinTooltip(tag.type, tag.originalIndex);
-      button.addEventListener('click', selectTag);
-      dot.addEventListener('click', selectTag);
-
-      const setHover = (active) => {
+      button.dataset.index = tag.originalIndex;
+      
+      // 이벤트 바인딩
+      const clickHandler = () => {
+        showPinTooltip(tag.type, tag.originalIndex);
+      };
+      
+      button.addEventListener('click', clickHandler);
+      dot.addEventListener('click', clickHandler);
+      
+      // 호버 연동 (연결선 강조 효과)
+      const hoverIn = () => {
         const line = dom.tagLinesSvg.querySelector(`[data-tag-line="${tag.type}-${tag.originalIndex}"]`);
-        if (active) {
-          line?.classList.add('active-line');
-          button.classList.add('active-tag');
-          dot.classList.add('active-dot');
-        } else if (!button.classList.contains('is-selected-active')) {
-          if (!line?.classList.contains('is-selected-active-line')) line?.classList.remove('active-line');
+        if (line) line.classList.add('active-line');
+        button.classList.add('active-tag');
+        dot.classList.add('active-dot');
+      };
+      const hoverOut = () => {
+        // 이미 툴팁으로 활성화된 태그가 아니면 호버 해제
+        if (!button.classList.contains('is-selected-active')) {
+          const line = dom.tagLinesSvg.querySelector(`[data-tag-line="${tag.type}-${tag.originalIndex}"]`);
+          if (line && !line.classList.contains('is-selected-active-line')) {
+            line.classList.remove('active-line');
+          }
           button.classList.remove('active-tag');
           dot.classList.remove('active-dot');
         }
       };
-      button.addEventListener('mouseenter', () => setHover(true));
-      button.addEventListener('mouseleave', () => setHover(false));
-      dot.addEventListener('mouseenter', () => setHover(true));
-      dot.addEventListener('mouseleave', () => setHover(false));
-
-      dom.tagContainer.append(dot, button);
+      
+      button.addEventListener('mouseenter', hoverIn);
+      button.addEventListener('mouseleave', hoverOut);
+      dot.addEventListener('mouseenter', hoverIn);
+      dot.addEventListener('mouseleave', hoverOut);
+      
+      dom.tagContainer.appendChild(dot);
+      dom.tagContainer.appendChild(button);
     });
   };
-
+  
   renderTagsForSide(leftTags, 'left');
   renderTagsForSide(rightTags, 'right');
+  
   dom.tagContainer.classList.remove('hidden');
   dom.tagLinesSvg.classList.remove('hidden');
-  dom.pinInteractionText.textContent = '의상 태그를 탭해 😇 베스트와 😈 개선 포인트를 확인해 보세요.';
+  
+  // 연결선 실시간 렌더링 호출
   setTimeout(drawLines, 50);
 }
 
+// Y축 충돌 방지 정렬 알고리즘
 function spaceOutTags(tags) {
-  if (!tags.length) return;
-  tags.sort((left, right) => left.y - right.y);
-  tags.forEach((tag) => { tag.displayY = tag.y; });
-  const minimumGap = 12;
-  for (let index = 1; index < tags.length; index += 1) {
-    tags[index].displayY = Math.max(tags[index].displayY, tags[index - 1].displayY + minimumGap);
+  if (tags.length === 0) return;
+  // y축 기준으로 정렬
+  tags.sort((a, b) => a.y - b.y);
+  
+  // 각 태그에 최초 displayY 할당
+  tags.forEach(tag => {
+    tag.displayY = tag.y;
+  });
+  
+  const minDist = 12; // 최소 12% 간격 유지
+  for (let i = 1; i < tags.length; i++) {
+    if (tags[i].displayY - tags[i-1].displayY < minDist) {
+      tags[i].displayY = tags[i-1].displayY + minDist;
+    }
   }
-  const overflow = Math.max(0, tags.at(-1).displayY - 90);
-  for (let index = tags.length - 1; index >= 0; index -= 1) {
-    tags[index].displayY = Math.max(5, tags[index].displayY - overflow);
-    if (index < tags.length - 1) {
-      tags[index].displayY = Math.min(tags[index].displayY, tags[index + 1].displayY - minimumGap);
+  
+  // 맨 마지막 태그가 하단 마진(90%)을 넘어가면 위로 밀어올림
+  if (tags[tags.length - 1].displayY > 90) {
+    const overflow = tags[tags.length - 1].displayY - 90;
+    for (let i = tags.length - 1; i >= 0; i--) {
+      tags[i].displayY = Math.max(5, tags[i].displayY - overflow);
+      if (i < tags.length - 1 && tags[i+1].displayY - tags[i].displayY < minDist) {
+        tags[i].displayY = tags[i+1].displayY - minDist;
+      }
     }
   }
 }
 
+// 실시간 연결선 그리기 (SVG)
 function drawLines() {
-  if (!dom.tagContainer || dom.tagContainer.classList.contains('hidden')) return;
-  dom.tagLinesSvg.textContent = '';
+  if (dom.tagContainer.classList.contains('hidden')) return;
+  
+  dom.tagLinesSvg.innerHTML = '';
+  
   const containerRect = dom.tagContainer.getBoundingClientRect();
-  if (!containerRect.width || !containerRect.height) return;
-
-  const dots = Array.from(dom.tagContainer.querySelectorAll('.anchor-dot'));
-  dom.tagContainer.querySelectorAll('.margin-tag').forEach((button) => {
-    const dot = dots.find((item) => item.dataset.type === button.dataset.type && item.dataset.index === button.dataset.index);
+  if (containerRect.width === 0 || containerRect.height === 0) return;
+  
+  const buttons = dom.tagContainer.querySelectorAll('.margin-tag');
+  const dots = dom.tagContainer.querySelectorAll('.anchor-dot');
+  
+  buttons.forEach((btn) => {
+    const type = btn.dataset.type;
+    const index = btn.dataset.index;
+    
+    // 일치하는 앵커 닷 찾기
+    const dot = Array.from(dots).find(d => d.dataset.type === type && d.dataset.index === index);
     if (!dot) return;
-    const buttonRect = button.getBoundingClientRect();
+    
+    const btnRect = btn.getBoundingClientRect();
     const dotRect = dot.getBoundingClientRect();
+    
+    // 컨테이너 대비 상대 좌표 계산
+    const y1 = (btnRect.top + btnRect.height / 2) - containerRect.top;
+    const y2 = (dotRect.top + dotRect.height / 2) - containerRect.top;
+    
+    let x1;
+    if (btn.style.left) {
+      // 좌측 배치 태그: 태그 버튼의 우측 끝단에서 시작
+      x1 = btnRect.right - containerRect.left;
+    } else {
+      // 우측 배치 태그: 태그 버튼의 좌측 끝단에서 시작
+      x1 = btnRect.left - containerRect.left;
+    }
+    
+    const x2 = (dotRect.left + dotRect.width / 2) - containerRect.left;
+    
+    // SVG Line 요소 생성
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', button.style.left ? buttonRect.right - containerRect.left : buttonRect.left - containerRect.left);
-    line.setAttribute('y1', buttonRect.top + (buttonRect.height / 2) - containerRect.top);
-    line.setAttribute('x2', dotRect.left + (dotRect.width / 2) - containerRect.left);
-    line.setAttribute('y2', dotRect.top + (dotRect.height / 2) - containerRect.top);
-    const active = button.classList.contains('active-tag');
-    line.setAttribute('class', `tag-connection-line tag-connection-line-${button.dataset.type}${active ? ' active-line is-selected-active-line' : ''}`);
-    line.dataset.tagLine = `${button.dataset.type}-${button.dataset.index}`;
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    
+    // 클래스 바인딩 및 커스텀 식별자 저장
+    const isActive = btn.classList.contains('active-tag');
+    line.setAttribute('class', `tag-connection-line tag-connection-line-${type} ${isActive ? 'active-line is-selected-active-line' : ''}`);
+    line.dataset.tagLine = `${type}-${index}`;
+    
     dom.tagLinesSvg.appendChild(line);
   });
 }
@@ -807,74 +797,53 @@ function drawLines() {
 // 핀 상세 정보 툴팁 노출
 function showPinTooltip(type, index = 0) {
   dom.feedbackTooltip.classList.remove('hidden');
-  dom.feedbackTooltip.classList.remove('tooltip-reveal');
-  void dom.feedbackTooltip.offsetWidth;
-  dom.feedbackTooltip.classList.add('tooltip-reveal');
   playSound('select');
-  dom.tagContainer.querySelectorAll('.margin-tag, .anchor-dot').forEach((element) => {
-    element.classList.remove('active-tag', 'active-dot', 'is-selected-active');
+
+  // 모든 태그 및 닷의 하이라이트 상태 초기화
+  dom.tagContainer.querySelectorAll('.margin-tag').forEach(btn => {
+    btn.classList.remove('active-tag', 'is-selected-active');
   });
-  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach((line) => {
+  dom.tagContainer.querySelectorAll('.anchor-dot').forEach(dot => {
+    dot.classList.remove('active-dot');
+  });
+  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach(line => {
     line.classList.remove('active-line', 'is-selected-active-line');
   });
-  const selectedTag = dom.tagContainer.querySelector(`.margin-tag[data-type="${type}"][data-index="${index}"]`);
-  const selectedDot = dom.tagContainer.querySelector(`.anchor-dot[data-type="${type}"][data-index="${index}"]`);
-  const selectedLine = dom.tagLinesSvg.querySelector(`[data-tag-line="${type}-${index}"]`);
-  selectedTag?.classList.add('active-tag', 'is-selected-active');
-  selectedDot?.classList.add('active-dot', 'is-selected-active');
-  selectedLine?.classList.add('active-line', 'is-selected-active-line');
+
+  // 현재 선택된 태그와 앵커 닷, 연결선 찾아서 활성화
+  const activeBtn = dom.tagContainer.querySelector(`.margin-tag[data-type="${type}"][data-index="${index}"]`);
+  const activeDot = dom.tagContainer.querySelector(`.anchor-dot[data-type="${type}"][data-index="${index}"]`);
+  const activeLine = dom.tagLinesSvg.querySelector(`[data-tag-line="${type}-${index}"]`);
+
+  if (activeBtn) activeBtn.classList.add('active-tag', 'is-selected-active');
+  if (activeDot) activeDot.classList.add('active-dot');
+  if (activeLine) activeLine.classList.add('active-line', 'is-selected-active-line');
 
   if (type === 'angel') {
     dom.tooltipTitle.textContent = "😇 BEST MATCH";
     dom.tooltipTitle.className = "font-headline font-black text-xs uppercase px-2 py-0.5 border-[2px] border-black bg-secondary text-black";
     dom.tooltipContent.textContent = state.bestMatches[index].name;
-    dom.tooltipStep.classList.add('hidden');
-    dom.tooltipRecommendation.classList.add('hidden');
-    dom.styleEditPolicyNote.classList.add('hidden');
     
     // Angel은 쇼핑몰 추천 및 코디적용 숨김
     dom.linkShopping.classList.add('hidden');
     dom.btnApplyAdvice.classList.add('hidden');
   } else {
-    const totalMatches = state.worstMatches.length;
-    state.selectedWorstMatchIndex = index;
-    dom.tooltipTitle.textContent = index === 0 ? "😈 가장 먼저 고칠 곳" : "😈 또 다른 개선 포인트";
+    dom.tooltipTitle.textContent = "😈 WORST MATCH";
     dom.tooltipTitle.className = "font-headline font-black text-xs uppercase px-2 py-0.5 border-[2px] border-black bg-error-container text-black";
-    dom.tooltipStep.textContent = totalMatches > 1 ? `${index + 1} / ${totalMatches}` : '핵심 1개';
-    dom.tooltipStep.classList.remove('hidden');
     
     const selectedMatch = state.worstMatches[index];
     let comment = selectedMatch.name;
     let query = encodeURIComponent(selectedMatch.recommendItem);
 
     dom.tooltipContent.textContent = comment;
-    dom.tooltipRecommendItem.textContent = selectedMatch.recommendItem;
-    dom.tooltipRecommendReason.textContent = selectedMatch.recommendReason;
-    dom.tooltipReasonTags.textContent = '';
-    (selectedMatch.reasonTags || []).forEach((tag) => {
-      const chip = document.createElement('span');
-      chip.className = 'bg-secondary border-[2px] border-black px-2 py-0.5 text-[9px] font-black';
-      chip.textContent = `#${tag}`;
-      dom.tooltipReasonTags.appendChild(chip);
-    });
-    dom.tooltipRecommendation.classList.remove('hidden');
-    dom.btnNextImprovement.classList.toggle('hidden', totalMatches < 2);
-    dom.btnNextImprovement.textContent = index === totalMatches - 1
-      ? '첫 개선 포인트로 돌아가기 ↺'
-      : '다음 개선 포인트 보기 →';
     state.worstMatch = selectedMatch;
     state.targetMusinsaItem = selectedMatch.recommendItem;
     state.targetMusinsaUrl = `https://www.musinsa.com/search/goods?keyword=${query}`;
-    dom.linkShopping.href = state.targetMusinsaUrl;
-    const styleEditSupported = isStyleEditSupported(selectedMatch);
-    dom.styleEditPolicyNote.textContent = styleEditSupported
-      ? ''
-      : `${selectedMatch.recommendItem}은(는) 얼굴·손 주변을 보호하기 위해 사진 적용 대신 비슷한 상품 찾기만 지원해요.`;
-    dom.styleEditPolicyNote.classList.toggle('hidden', styleEditSupported);
-
-    // 가상 적용 전에도 실제 상품을 먼저 둘러보거나 코디 적용을 선택할 수 있다.
-    dom.linkShopping.classList.remove('hidden');
-    if (state.isPatched || !styleEditSupported) {
+    dom.linkShopping.href = "#";
+    
+    // 개선 전에는 적용 버튼만 노출하고 쇼핑 링크는 개선 완료 후 별도 카드에서 제공한다.
+    dom.linkShopping.classList.add('hidden');
+    if (state.isPatched) {
       dom.btnApplyAdvice.classList.add('hidden'); // 이미 적용되었으면 감춤
     } else {
       dom.btnApplyAdvice.classList.remove('hidden');
@@ -891,25 +860,24 @@ function showPinTooltip(type, index = 0) {
 
 function hideTooltip() {
   dom.feedbackTooltip.classList.add('hidden');
-  dom.tagContainer.querySelectorAll('.margin-tag, .anchor-dot').forEach((element) => {
-    element.classList.remove('active-tag', 'active-dot', 'is-selected-active');
+  
+  // 모든 활성 상태 하이라이트 제거
+  dom.tagContainer.querySelectorAll('.margin-tag').forEach(btn => {
+    btn.classList.remove('active-tag', 'is-selected-active');
   });
-  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach((line) => {
+  dom.tagContainer.querySelectorAll('.anchor-dot').forEach(dot => {
+    dot.classList.remove('active-dot');
+  });
+  dom.tagLinesSvg.querySelectorAll('.tag-connection-line').forEach(line => {
     line.classList.remove('active-line', 'is-selected-active-line');
   });
-}
-
-function showNextImprovement() {
-  const totalMatches = state.worstMatches?.length || 0;
-  if (totalMatches < 2) return;
-  const nextIndex = (state.selectedWorstMatchIndex + 1) % totalMatches;
-  showPinTooltip('devil', nextIndex);
 }
 
 
 function startInlineStyleEdit(recommendItemName) {
   const messages = [
     `${recommendItemName} 코디 시뮬레이션 가동 중...`,
+    '얼굴과 포즈는 그대로 잠금 완료 🔒',
     '새 아이템의 핏만 살짝 다듬는 중...',
     '원래 조명과 배경을 단속하는 중...',
     '코디 밸런스에 패션 소금 한 꼬집...',
@@ -960,24 +928,14 @@ function animateInlineScore(from, to) {
 async function applyStyleAdvice() {
   if (state.isPatched) return;
 
-  const selectedMatch = state.worstMatch;
-  if (!isStyleEditSupported(selectedMatch)) {
-    showToast('귀걸이·반지·피어싱은 사진 적용 대신 비슷한 상품 찾기만 지원해요. 🛡️');
-    return;
-  }
-
   dom.btnApplyAdvice.disabled = true;
-  const appliedMatchIndex = state.selectedWorstMatchIndex;
   const recommendItemName = state.targetMusinsaItem || "독일군 스니커즈";
-  const originalImage = state.originalOotdImage || state.currentOotdImage;
   const previousScore = state.score;
   const previousStats = new Map(state.stats.map((stat) => [stat.name, stat.val]));
   const finishLoading = startInlineStyleEdit(recommendItemName);
-  let acceptedImage;
-  let acceptedAnalysis;
 
   try {
-    const preparedImage = await prepareImageForStyleEdit(originalImage);
+    const preparedImage = await prepareImageForStyleEdit(state.currentOotdImage);
     const response = await fetch('/api/apply-style', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -987,8 +945,6 @@ async function applyStyleAdvice() {
         height: preparedImage.originalHeight,
         recommendation: state.targetMusinsaItem,
         feedback: state.worstMatch?.name || '',
-        itemType: selectedMatch.itemType,
-        editRegion: selectedMatch.editRegion,
       }),
     });
     const payload = await response.json().catch(() => ({}));
@@ -999,53 +955,38 @@ async function applyStyleAdvice() {
       );
     }
 
-    const localizationCheck = await validateLocalizedStyleEdit(originalImage, payload.image, selectedMatch);
-    if (!localizationCheck.accepted) {
-      console.warn('Style edit changed too much outside the target region.', localizationCheck);
-      throw new ApiRequestError(
-        'STYLE_EDIT_REJECTED',
-        '추천 아이템 밖의 영역까지 달라져 이번 결과는 적용하지 않았어요. 다른 개선 포인트로 시도해 주세요.',
-      );
-    }
+    const resultImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+    resultImage.src = payload.image;
+    await resultImage.decode();
+    state.originalOotdImage ||= state.currentOotdImage;
+    state.improvedOotdImage = payload.image;
+    state.currentOotdImage = payload.image;
 
     dom.styleEditStatus.textContent = '새 코디 패션력과 스탯 다시 측정 중...';
-    acceptedAnalysis = await callAnalyzeAPI(
-      payload.image,
-      state.selectedTpo,
-      {
+    try {
+      const analysis = await callAnalyzeAPI(payload.image, state.selectedTpo, {
         item: recommendItemName,
         previousScore,
-        itemType: selectedMatch.itemType,
-        editRegion: selectedMatch.editRegion,
-      },
-      originalImage,
-    );
-    if (acceptedAnalysis.editAccepted === false) {
+      });
+      applyImprovedAnalysis(analysis, previousStats);
+      await animateInlineScore(previousScore, state.score);
+    } catch (analysisError) {
+      console.warn('Improved image analysis failed.', analysisError);
+      resultImage.src = state.originalOotdImage;
+      state.currentOotdImage = state.originalOotdImage;
+      state.improvedOotdImage = null;
       throw new ApiRequestError(
-        'STYLE_EDIT_REJECTED',
-        '추천 아이템 외의 모습이 달라져 이번 결과는 적용하지 않았어요. 다른 개선 포인트로 시도해 주세요.',
+        'STYLE_RESULT_ANALYSIS_FAILED',
+        `${aiErrorMessage(analysisError)} 원본으로 되돌렸어요. 잠시 후 다시 개선해 주세요.`,
       );
     }
-    await decodeDataUrlImage(payload.image);
-    acceptedImage = payload.image;
+    finishLoading();
   } catch (error) {
     finishLoading();
     showToast(aiErrorMessage(error));
     dom.btnApplyAdvice.disabled = false;
     return;
   }
-
-  const resultImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
-  resultImage.src = acceptedImage;
-  state.originalOotdImage = originalImage;
-  state.improvedOotdImage = acceptedImage;
-  state.currentOotdImage = acceptedImage;
-  applyImprovedAnalysis(acceptedAnalysis, previousStats);
-  renderImprovementChangeSummary(previousScore, recommendItemName);
-  updateAchievement();
-  saveRecentResult({ improved: true });
-  await animateInlineScore(previousScore, state.score);
-  finishLoading();
 
   state.isPatched = true;
   dom.btnApplyAdvice.disabled = false;
@@ -1060,43 +1001,9 @@ async function applyStyleAdvice() {
     || `${recommendItemName}(으)로 갈아입혀 ${state.selectedTpo} 무드와 전체 밸런스가 한층 또렷해졌어요. 문제 아이템은 퇴근 완료!`;
   dom.improvedShoppingLink.href = `https://www.musinsa.com/search/goods?keyword=${encodeURIComponent(recommendItemName)}`;
   dom.improvedShoppingCard.classList.remove('hidden');
-  renderRemainingRecommendations(appliedMatchIndex);
   dom.pinInteractionGuide.classList.add('hidden');
   showImageVersion('after');
   showToast('코디 적용 완료! BEFORE / AFTER로 변신을 확인해 보세요. ✨');
-}
-
-function renderRemainingRecommendations(appliedMatchIndex) {
-  const remainingMatches = state.originalWorstMatches.filter((_, index) => index !== appliedMatchIndex);
-  dom.remainingRecommendationItems.textContent = '';
-  dom.remainingRecommendations.classList.toggle('hidden', remainingMatches.length === 0);
-
-  remainingMatches.forEach((match) => {
-    const row = document.createElement('div');
-    row.className = 'bg-white border-[2px] border-black p-2.5 flex items-center justify-between gap-3';
-
-    const copy = document.createElement('div');
-    copy.className = 'min-w-0';
-    const item = document.createElement('p');
-    item.className = 'font-headline text-[11px] font-black';
-    item.textContent = match.recommendItem;
-    const tags = document.createElement('p');
-    tags.className = 'text-[9px] font-bold text-on-surface-variant mt-0.5';
-    tags.textContent = (match.reasonTags || []).map((tag) => `#${tag}`).join(' ');
-    copy.append(item, tags);
-
-    const link = document.createElement('a');
-    link.className = 'shrink-0 bg-cream border-[2px] border-black px-2.5 py-2 text-[9px] font-black hover:bg-secondary transition-colors';
-    link.href = `https://www.musinsa.com/search/goods?keyword=${encodeURIComponent(match.recommendItem)}`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = '상품 찾기 ↗';
-    link.dataset.shoppingLink = 'true';
-    link.dataset.itemName = match.recommendItem;
-
-    row.append(copy, link);
-    dom.remainingRecommendationItems.appendChild(row);
-  });
 }
 
 function showImageVersion(version) {
@@ -1121,230 +1028,12 @@ function applyImprovedAnalysis(analysis, previousStats) {
     name,
     val,
     originalVal: previousStats.get(name) ?? val,
-    higherIsBetter: getStatMetadata(name).higherIsBetter,
   }));
   state.isPatched = true;
   dom.resultScoreNum.textContent = state.score.toLocaleString();
   dom.resultTierName.textContent = state.tier;
   dom.resultRoastText.textContent = analysis.roast;
   renderVibeStats();
-}
-
-function renderImprovementChangeSummary(previousScore, recommendItemName) {
-  const scoreDelta = state.score - previousScore;
-  const statChanges = state.stats
-    .map((stat) => {
-      const rawDelta = stat.val - stat.originalVal;
-      const higherIsBetter = stat.higherIsBetter ?? getStatMetadata(stat.name).higherIsBetter;
-      return {
-        label: stat.name,
-        rawDelta,
-        improvement: higherIsBetter ? rawDelta : -rawDelta,
-      };
-    })
-    .filter((change) => change.improvement > 0)
-    .sort((left, right) => right.improvement - left.improvement)
-    .slice(0, 2);
-
-  state.improvementChanges = [
-    { label: recommendItemName, value: '적용 완료' },
-    ...(scoreDelta ? [{ label: '패션력', value: `${scoreDelta > 0 ? '+' : ''}${scoreDelta.toLocaleString()}` }] : []),
-    ...statChanges.map((change) => ({
-      label: change.label,
-      value: `${change.rawDelta > 0 ? '+' : ''}${change.rawDelta}`,
-    })),
-  ];
-
-  dom.improvementChangeItems.textContent = '';
-  state.improvementChanges.forEach((change) => {
-    const chip = document.createElement('span');
-    chip.className = 'bg-white border-[2px] border-black px-2 py-1 text-[9px] font-black';
-    chip.textContent = `${change.label} ${change.value}`;
-    dom.improvementChangeItems.appendChild(chip);
-  });
-  dom.improvementChangeSummary.classList.toggle('hidden', state.improvementChanges.length === 0);
-}
-
-const ACHIEVEMENT_TITLE_POOLS = Object.freeze({
-  '일상': ['꾸안꾸 연금술사', '동네 런웨이 지배자', '마실 패션 대장'],
-  '데이트': ['심쿵 유발 용의자', '애프터 예약 완료', '로맨스 드레스 코드 해커'],
-  '출근': ['출근룩 최종 결재자', '부장님 레이더 회피왕', '오피스 아우라 CEO'],
-  '운동': ['오운완 비주얼 센터', '거울존 지배자', '근손실 방어 패셔니스타'],
-  '하객': ['민폐 차단 하객왕', '단체사진 생존자', '피로연 드레스 코드 수호자'],
-});
-
-function updateAchievement() {
-  const titles = ACHIEVEMENT_TITLE_POOLS[state.selectedTpo] || ACHIEVEMENT_TITLE_POOLS['일상'];
-  const seedSource = `${state.selectedTpo}:${state.score}:${state.worstMatches?.length || 0}`;
-  const seed = Array.from(seedSource).reduce((sum, character) => sum + character.codePointAt(0), 0);
-  const title = titles[seed % titles.length];
-  const description = state.isPatched
-    ? `리믹스로 ${state.tier} 진입! 오늘의 코디 서사가 한 단계 진화했습니다.`
-    : state.score >= 9000
-      ? '패션 챌린저 구역 입성. 오늘만큼은 거리가 당신의 런웨이입니다.'
-      : state.score >= 7500
-        ? '다이아 감도 포착. 친구가 어디서 샀냐고 물을 확률이 높습니다.'
-        : state.score >= 6000
-          ? '골드 기본기 인증. 개선 포인트 하나면 다음 티어가 보입니다.'
-          : '성장형 패셔니스타 발견. 악마 핀을 누르면 반전 서사가 시작됩니다.';
-
-  state.achievement = { title, description };
-  dom.achievementTitle.textContent = title;
-  dom.achievementDescription.textContent = description;
-  dom.achievementCard.classList.remove('hidden');
-}
-
-function loadRecentResults() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(RECENT_RESULTS_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed.slice(0, 3) : [];
-  } catch {
-    return [];
-  }
-}
-
-// 최근 기록의 BEFORE/AFTER 이미지 저장소 (IndexedDB - 이 브라우저에만 영구 저장됨)
-function openRecentImagesDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(RECENT_IMAGES_DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(RECENT_IMAGES_STORE)) {
-        request.result.createObjectStore(RECENT_IMAGES_STORE, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function putRecentImages(id, images) {
-  try {
-    const db = await openRecentImagesDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(RECENT_IMAGES_STORE, 'readwrite');
-      tx.objectStore(RECENT_IMAGES_STORE).put({ id, ...images });
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-    db.close();
-  } catch (error) {
-    console.warn('Recent result images could not be saved.', error);
-  }
-}
-
-async function getRecentImages(id) {
-  try {
-    const db = await openRecentImagesDb();
-    const result = await new Promise((resolve, reject) => {
-      const tx = db.transaction(RECENT_IMAGES_STORE, 'readonly');
-      const request = tx.objectStore(RECENT_IMAGES_STORE).get(id);
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
-    });
-    db.close();
-    return result;
-  } catch (error) {
-    console.warn('Recent result images could not be loaded.', error);
-    return null;
-  }
-}
-
-async function pruneRecentImages(keepIds) {
-  try {
-    const db = await openRecentImagesDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(RECENT_IMAGES_STORE, 'readwrite');
-      const store = tx.objectStore(RECENT_IMAGES_STORE);
-      const keepSet = new Set(keepIds);
-      const cursorRequest = store.openCursor();
-      cursorRequest.onsuccess = () => {
-        const cursor = cursorRequest.result;
-        if (!cursor) return;
-        if (!keepSet.has(cursor.value.id)) cursor.delete();
-        cursor.continue();
-      };
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-    db.close();
-  } catch (error) {
-    console.warn('Recent result images could not be pruned.', error);
-  }
-}
-
-function saveRecentResult({ improved = false } = {}) {
-  try {
-    const records = loadRecentResults();
-    state.currentRecordId ||= `${Date.now()}-${state.score}`;
-    const previous = records.find((record) => record.id === state.currentRecordId);
-    const record = {
-      id: state.currentRecordId,
-      createdAt: previous?.createdAt || Date.now(),
-      updatedAt: Date.now(),
-      tpo: state.selectedTpo,
-      score: state.score,
-      tier: state.tier,
-      title: state.achievement?.title || '',
-      improved,
-    };
-    const nextRecords = [record, ...records.filter((item) => item.id !== state.currentRecordId)].slice(0, 3);
-    localStorage.setItem(RECENT_RESULTS_KEY, JSON.stringify(nextRecords));
-    putRecentImages(record.id, {
-      beforeImage: state.originalOotdImage,
-      afterImage: state.improvedOotdImage,
-    });
-    pruneRecentImages(nextRecords.map((item) => item.id));
-    renderRecentResults();
-  } catch (error) {
-    console.warn('Recent result could not be saved.', error);
-  }
-}
-
-async function openRecentResultDetail(record) {
-  const images = await getRecentImages(record.id);
-  if (!images?.beforeImage) {
-    showToast('이 기록의 사진을 더 이상 불러올 수 없어요.');
-    return;
-  }
-  dom.recentDetailTitle.textContent = record.title || `${record.tpo} 코디 도전자`;
-  const date = new Date(record.updatedAt || record.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
-  dom.recentDetailMeta.textContent = `${date} · ${record.tpo} · ${record.tier} · ${record.score.toLocaleString()}점`;
-  dom.recentDetailBeforeImg.src = images.beforeImage;
-  if (images.afterImage) {
-    dom.recentDetailAfterImg.src = images.afterImage;
-    dom.recentDetailAfterWrap.classList.remove('hidden');
-  } else {
-    dom.recentDetailAfterWrap.classList.add('hidden');
-  }
-  dom.recentResultDetailModal.classList.remove('hidden');
-}
-
-function renderRecentResults() {
-  const records = loadRecentResults();
-  dom.recentResultsList.textContent = '';
-  records.forEach((record) => {
-    const row = document.createElement('div');
-    row.className = 'border-[2px] border-black bg-cream px-3 py-2 flex items-center justify-between gap-3 cursor-pointer hover:translate-x-[1px] hover:translate-y-[1px] transition-transform';
-    row.addEventListener('click', () => openRecentResultDetail(record));
-
-    const copy = document.createElement('div');
-    copy.className = 'min-w-0';
-    const title = document.createElement('p');
-    title.className = 'font-headline text-[11px] font-black truncate';
-    title.textContent = record.title || `${record.tpo} 코디 도전자`;
-    const meta = document.createElement('p');
-    meta.className = 'text-[9px] font-bold text-on-surface-variant';
-    const date = new Date(record.updatedAt || record.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
-    meta.textContent = `${date} · ${record.tpo} · ${record.tier}${record.improved ? ' · 개선 완료' : ''}`;
-    copy.append(title, meta);
-
-    const score = document.createElement('strong');
-    score.className = 'font-headline text-sm font-black shrink-0';
-    score.textContent = record.score.toLocaleString();
-    row.append(copy, score);
-    dom.recentResultsList.appendChild(row);
-  });
-  dom.recentResultsCard.classList.toggle('hidden', records.length === 0);
 }
 
 async function prepareImageForStyleEdit(dataUrl) {
@@ -1367,109 +1056,6 @@ async function prepareImageForStyleEdit(dataUrl) {
     originalWidth: image.naturalWidth,
     originalHeight: image.naturalHeight,
   };
-}
-
-function isStyleEditSupported(match) {
-  return Boolean(
-    match
-    && EDITABLE_STYLE_ITEM_TYPES.has(match.itemType)
-    && isEditRegionSafe(match.itemType, match.editRegion)
-    && !BLOCKED_STYLE_EDIT_PATTERN.test(match.recommendItem || ''),
-  );
-}
-
-function isEditRegionSafe(itemType, region) {
-  if (!region || !['x', 'y', 'width', 'height'].every((key) => Number.isFinite(Number(region[key])))) return false;
-  const limits = {
-    clothing: [90, 95, 7200],
-    bag: [60, 70, 3600],
-    belt: [80, 35, 2200],
-    shoes: [70, 45, 2600],
-    watch: [35, 35, 1000],
-    'fashion-accessory': [60, 60, 2600],
-  }[itemType];
-  return Boolean(
-    limits
-    && region.x >= 0 && region.x <= 100
-    && region.y >= 0 && region.y <= 100
-    && region.width >= 1 && region.width <= limits[0]
-    && region.height >= 1 && region.height <= limits[1]
-    && (region.width * region.height) <= limits[2]
-  );
-}
-
-async function validateLocalizedStyleEdit(originalDataUrl, candidateDataUrl, match) {
-  const [original, candidate] = await Promise.all([
-    decodeDataUrlImage(originalDataUrl),
-    decodeDataUrlImage(candidateDataUrl),
-  ]);
-  const sampleWidth = 192;
-  const sampleHeight = Math.max(128, Math.min(256, Math.round(sampleWidth * (original.naturalHeight / original.naturalWidth))));
-  const originalPixels = drawImagePixels(original, sampleWidth, sampleHeight);
-  const candidatePixels = drawImagePixels(candidate, sampleWidth, sampleHeight);
-  const region = match.editRegion;
-  const paddingX = 4;
-  const paddingY = 4;
-  const left = Math.max(0, region.x - (region.width / 2) - paddingX);
-  const right = Math.min(100, region.x + (region.width / 2) + paddingX);
-  const top = Math.max(0, region.y - (region.height / 2) - paddingY);
-  const bottom = Math.min(100, region.y + (region.height / 2) + paddingY);
-  let outsidePixels = 0;
-  let outsideChangedPixels = 0;
-  let outsideDeltaTotal = 0;
-  let insidePixels = 0;
-  let insideChangedPixels = 0;
-
-  for (let y = 0; y < sampleHeight; y += 1) {
-    for (let x = 0; x < sampleWidth; x += 1) {
-      const offset = ((y * sampleWidth) + x) * 4;
-      const delta = (
-        Math.abs(originalPixels[offset] - candidatePixels[offset])
-        + Math.abs(originalPixels[offset + 1] - candidatePixels[offset + 1])
-        + Math.abs(originalPixels[offset + 2] - candidatePixels[offset + 2])
-      ) / 3;
-      const xPercent = ((x + 0.5) / sampleWidth) * 100;
-      const yPercent = ((y + 0.5) / sampleHeight) * 100;
-      const insideTarget = xPercent >= left && xPercent <= right && yPercent >= top && yPercent <= bottom;
-
-      if (insideTarget) {
-        insidePixels += 1;
-        if (delta >= 28) insideChangedPixels += 1;
-      } else {
-        outsidePixels += 1;
-        outsideDeltaTotal += delta;
-        if (delta >= 32) outsideChangedPixels += 1;
-      }
-    }
-  }
-
-  const outsideChangedRatio = outsidePixels ? outsideChangedPixels / outsidePixels : 1;
-  const outsideMeanDelta = outsidePixels ? outsideDeltaTotal / outsidePixels : 255;
-  const insideChangedRatio = insidePixels ? insideChangedPixels / insidePixels : 0;
-  return {
-    accepted: outsideChangedRatio <= 0.16 && outsideMeanDelta <= 14 && insideChangedRatio >= 0.005,
-    outsideChangedRatio: Number(outsideChangedRatio.toFixed(4)),
-    outsideMeanDelta: Number(outsideMeanDelta.toFixed(2)),
-    insideChangedRatio: Number(insideChangedRatio.toFixed(4)),
-  };
-}
-
-async function decodeDataUrlImage(dataUrl) {
-  const image = new Image();
-  image.src = dataUrl;
-  await image.decode();
-  return image;
-}
-
-function drawImagePixels(image, width, height) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d', { willReadFrequently: true });
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'high';
-  context.drawImage(image, 0, 0, width, height);
-  return context.getImageData(0, 0, width, height).data;
 }
 
 // 점수판 및 스탯 렌더링 총괄
@@ -1499,7 +1085,6 @@ function renderResultDashboard() {
   if (state.isBattleMode) {
     // 헤더 배지 변경 (전체 상태 표기)
     if (dom.resultHeaderBadge) {
-      dom.resultHeaderBadge.classList.remove('hidden');
       if (state.score > state.opponentScore) {
         dom.resultHeaderBadge.textContent = "VICTORY 🎉";
         dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-black rotate-[2deg] text-black";
@@ -1515,10 +1100,10 @@ function renderResultDashboard() {
       dom.resultRoastText.textContent = `🚨 배틀 패배! 상대방의 견고한 가치관이 깃든 핏(점수: ${state.opponentScore.toLocaleString()}점)에 가로막혀 당신의 OOTD가 대완패를 당했습니다. 추천 코드를 가상 장착하여 복수전을 시작하세요! 😈`;
     }
   } else {
-    // 내부 검수 문구는 사용자 결과 화면에 노출하지 않습니다.
+    // 헤더 배지 복원
     if (dom.resultHeaderBadge) {
-      dom.resultHeaderBadge.textContent = '';
-      dom.resultHeaderBadge.className = 'hidden';
+      dom.resultHeaderBadge.textContent = "QC PASSED ✅";
+      dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold rotate-[2deg] text-black";
     }
     dom.resultTopOverlayTag.textContent = state.score >= 7000 ? "VOGUE PASS" : "EMERGENCY";
     dom.resultRoastText.textContent = getRoastComment(state.selectedTpo, state.score, state.isPatched);
@@ -1536,38 +1121,6 @@ function calculateTier(score) {
   if (score >= 6000) return '골드';
   if (score >= 4000) return '실버';
   return '아이언';
-}
-
-const STAT_METADATA = Object.freeze({
-  '색상 불협화음 🎨': { higherIsBetter: false },
-  '안구 보호도 👁️': { higherIsBetter: true },
-  '근자감 농도 ⚡': { higherIsBetter: true },
-  '지갑 방어력 💸': { higherIsBetter: true },
-  '마실 적합도 ☕': { higherIsBetter: true },
-  '설렘 유발 지수 💘': { higherIsBetter: true },
-  '과도한 격식도 🕴️': { higherIsBetter: false },
-  '센스 스포일러 🕶️': { higherIsBetter: true },
-  '호감도 파괴력 💔': { higherIsBetter: false },
-  '데이트 생존율 🧬': { higherIsBetter: true },
-  '부장님 눈총 지수 😒': { higherIsBetter: false },
-  '프로페셔널 지수 💼': { higherIsBetter: true },
-  '활동성 방해율 🏃': { higherIsBetter: false },
-  '퇴근 본능 자극도 ⏰': { higherIsBetter: false },
-  '평판 수호 지수 🛡️': { higherIsBetter: true },
-  '헬창 아우라 지수 🏋️': { higherIsBetter: true },
-  '거울 셀카 득표율 📸': { higherIsBetter: true },
-  '땀 배출 지연도 💦': { higherIsBetter: false },
-  '신체 보정 치트 📐': { higherIsBetter: true },
-  '근손실 위장도 🧬': { higherIsBetter: true },
-  '신부 저격 민폐도 🏹': { higherIsBetter: false },
-  '하객 격식 비율 🤝': { higherIsBetter: true },
-  '사진 생존율 📸': { higherIsBetter: true },
-  '피로연 프리패스 🍽️': { higherIsBetter: true },
-  '친척 잔소리 실드 🛡️': { higherIsBetter: true },
-});
-
-function getStatMetadata(name) {
-  return STAT_METADATA[name] || { higherIsBetter: true };
 }
 
 // 스탯별 위트있는 상세 설명 데이터베이스
@@ -1655,30 +1208,22 @@ function renderVibeStats() {
     // 5대 교차 컬러 배치 (Lavender, Mint, Peach, Cream, Deep Lavender)
     const colorClasses = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-cream', 'bg-[#c9c1ff]'];
     const barColor = colorClasses[idx % colorClasses.length];
-    const rawDelta = stat.val - stat.originalVal;
     const baseline = Math.min(stat.originalVal, stat.val);
-    const change = Math.abs(rawDelta);
-    const changeLabel = rawDelta
-      ? `${rawDelta > 0 ? '+' : ''}${rawDelta} ${rawDelta > 0 ? 'UP!' : 'DOWN!'}`
-      : '';
-    // 스탯 성격(higherIsBetter)과 무관하게 수치가 오르면 초록, 내리면 빨강으로 표시
-    const changeTextClass = rawDelta > 0 ? 'text-[#087f5b]' : 'text-error';
-    const changeBarClass = rawDelta > 0 ? 'bg-secondary' : 'bg-error';
+    const gain = Math.max(0, stat.val - baseline);
 
     const statItem = document.createElement('div');
     statItem.className = "flex flex-col gap-1 cursor-pointer group w-full";
     statItem.innerHTML = `
-      <div class="stat-row w-full hover:translate-x-[2px] transition-transform">
-        <span class="stat-name font-bold text-[11px] uppercase tracking-tight text-black whitespace-nowrap"></span>
+      <div class="flex items-center gap-2 w-full hover:translate-x-[2px] transition-transform">
+        <span class="w-24 font-bold text-xs uppercase tracking-tight text-black">${stat.name}</span>
         <div class="flex-1 h-5 border-[3px] border-black bg-white flex overflow-hidden">
           <div class="stat-bar-base ${barColor} h-full transition-all duration-700" style="width: 0%;"></div>
-          <div class="stat-bar-gain ${changeBarClass} h-full transition-all duration-700" style="width: 0%;"></div>
+          <div class="stat-bar-gain bg-error h-full transition-all duration-700" style="width: 0%;"></div>
         </div>
-        <span class="text-right text-xs font-headline font-black text-black">${stat.val}%${change ? `<small class="block text-[8px] ${changeTextClass}">${changeLabel}</small>` : ''}</span>
+        <span class="w-14 text-right text-xs font-headline font-black text-black">${stat.val}%${gain ? `<small class="block text-[8px] text-error">+${gain} UP!</small>` : ''}</span>
       </div>
       <div class="stat-desc-container hidden w-full"></div>
     `;
-    statItem.querySelector('.stat-name').textContent = stat.name;
 
     // 탭하여 스탯별 설명 팝업/토글 바인딩
     statItem.addEventListener('click', () => {
@@ -1709,7 +1254,7 @@ function renderVibeStats() {
       const baseEl = statItem.querySelector('.stat-bar-base');
       const gainEl = statItem.querySelector('.stat-bar-gain');
       if (baseEl) baseEl.style.width = `${baseline}%`;
-      if (gainEl) gainEl.style.width = `${change}%`;
+      if (gainEl) gainEl.style.width = `${gain}%`;
     }, 50);
   });
 }
@@ -1775,26 +1320,15 @@ function resetToUploadScreen() {
   state.score = 0;
   state.isPatched = false;
   state.apiData = null; // API 데이터 리셋
-  state.improvementChanges = [];
-  state.originalWorstMatches = [];
-  state.achievement = null;
-  state.currentRecordId = null;
-  state.selectedWorstMatchIndex = 0;
-  state.shareImageDataUrl = null;
-  state.shareImageFile = null;
   dom.imageVersionToggle.classList.add('hidden');
   dom.improvedShoppingCard.classList.add('hidden');
-  dom.improvementChangeSummary.classList.add('hidden');
-  dom.remainingRecommendations.classList.add('hidden');
-  dom.remainingRecommendationItems.textContent = '';
-  dom.achievementCard.classList.add('hidden');
   dom.styleEditOverlay.classList.add('hidden');
   dom.styleEditOverlay.classList.remove('flex');
   dom.analysisErrorPanel.classList.add('hidden');
-
-  // 마진 태그 및 연결선 초기화
-  dom.tagContainer.textContent = '';
-  dom.tagLinesSvg.textContent = '';
+  
+  // 핀 복원 및 클릭 리스너 청소
+  dom.tagContainer.innerHTML = '';
+  dom.tagLinesSvg.innerHTML = '';
   dom.tagContainer.classList.add('hidden');
   dom.tagLinesSvg.classList.add('hidden');
   
@@ -1819,8 +1353,8 @@ function resetToUploadScreen() {
     
     // 헤더 배지 복원
     if (dom.resultHeaderBadge) {
-      dom.resultHeaderBadge.textContent = '';
-      dom.resultHeaderBadge.className = 'hidden';
+      dom.resultHeaderBadge.textContent = "QC PASSED ✅";
+      dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold rotate-[2deg] text-black";
     }
     
     // 버튼 텍스트 복구
@@ -1854,101 +1388,403 @@ function resetToUploadScreen() {
 
 async function exportInstagramStory() {
   const canvas = dom.instagramExportCanvas;
-  const ctx = canvas?.getContext('2d');
+  const ctx = canvas.getContext('2d');
+  
+  // 로딩 알림 Toast 노출
+  showToast("인스타 스토리 공유 카드 생성 중... 🎨");
 
-  if (!canvas || !ctx) {
-    showToast('공유 카드를 만들 수 없어요. 잠시 후 다시 시도해 주세요.');
-    return;
-  }
+  // 1. 배경 그라데이션 그리기 (Neo-Brutalist 힙한 연보라 대각선 그라데이션)
+  const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+  grad.addColorStop(0, '#eae6ff'); // Lavender
+  grad.addColorStop(1, '#ffefea'); // Peach
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1080, 1920);
 
-  showToast('인스타 스토리 공유 카드 생성 중... 🎨');
+  // 2. 외곽 15px 두꺼운 블랙 보더 라인
+  ctx.lineWidth = 30;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(0, 0, 1080, 1920);
 
-  try {
-    let shareImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
-    if (!state.isBattleMode && state.improvedOotdImage) {
-      shareImage = new Image();
-      shareImage.src = state.improvedOotdImage;
-      await shareImage.decode();
-    } else if (!shareImage.complete || !shareImage.naturalWidth) {
-      await shareImage.decode();
+  // 3. 타이틀 텍스트 그리기 (Montserrat 스타일 볼드 블랙)
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = '900 80px Montserrat, sans-serif';
+  ctx.fillText(state.isBattleMode ? 'FITCHECK! BATTLE' : 'FITCHECK! VERDICT', 540, 150);
+
+  // 4. OOTD 사진 그리기 (일반 모드는 1:1, 배틀 모드는 5:5 분할 드로잉)
+  const imgElement = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+  const imgWidth = 650;
+  const imgHeight = 650;
+  const imgX = (1080 - imgWidth) / 2; // 215
+  const imgY = 240;
+
+  // 4-1. 사진 아래 15px 블랙 그림자 사각형
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(imgX + 15, imgY + 15, imgWidth, imgHeight);
+
+  if (state.isBattleMode) {
+    // === 배틀 모드: 5:5 좌우 분할 드로잉 ===
+    const halfW = imgWidth / 2; // 325
+
+    // [왼쪽: 상대방 정보 카드]
+    ctx.fillStyle = '#fff9e6'; // Cream background for opponent
+    ctx.fillRect(imgX, imgY, halfW, imgHeight);
+
+    // 상대방 실루엣 원 그리기
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(imgX + 162.5, imgY + 180, 70, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 👤 이모지 그리기
+    ctx.fillStyle = '#000000';
+    ctx.font = '80px Lexend, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('👤', imgX + 162.5, imgY + 180);
+
+    // OPPONENT 배너
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(imgX + 62.5, imgY + 280, 200, 45);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px Montserrat, sans-serif';
+    ctx.fillText('OPPONENT', imgX + 162.5, imgY + 305);
+
+    // 상대방 점수
+    ctx.fillStyle = '#000000';
+    ctx.font = '900 42px Montserrat, sans-serif';
+    ctx.fillText(`${state.opponentScore.toLocaleString()} PTS`, imgX + 162.5, imgY + 390);
+
+    // 상대방 티어
+    ctx.fillStyle = '#47464c';
+    ctx.font = 'bold 22px Lexend, sans-serif';
+    ctx.fillText(calculateTier(state.opponentScore), imgX + 162.5, imgY + 440);
+
+    // [오른쪽: 도전자 내 이미지]
+    ctx.fillStyle = '#eeeeee';
+    ctx.fillRect(imgX + halfW, imgY, halfW, imgHeight);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const naturalWidth = imgElement.naturalWidth || imgElement.width || halfW;
+    const naturalHeight = imgElement.naturalHeight || imgElement.height || imgHeight;
+
+    let drawW = halfW;
+    let drawH = imgHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    const containerRatio = halfW / imgHeight;
+    const imgRatio = naturalWidth / naturalHeight;
+
+    if (imgRatio > containerRatio) {
+      drawH = halfW / imgRatio;
+      offsetY = (imgHeight - drawH) / 2;
+    } else {
+      drawW = imgHeight * imgRatio;
+      offsetX = (halfW - drawW) / 2;
     }
 
-    drawFinalShareCard(ctx, canvas, shareImage, dom.resultRoastText?.textContent || '');
+    ctx.drawImage(imgElement, imgX + halfW + offsetX, imgY + offsetY, drawW, drawH);
 
-    state.shareImageDataUrl = canvas.toDataURL('image/png');
-    if (dom.instagramPreviewImg) {
-      dom.instagramPreviewImg.src = state.shareImageDataUrl;
+    // 분할선 그리기
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#000000';
+    ctx.beginPath();
+    ctx.moveTo(imgX + halfW, imgY);
+    ctx.lineTo(imgX + halfW, imgY + imgHeight);
+    ctx.stroke();
+
+    // 외곽 보더라인 그리기
+    ctx.lineWidth = 10;
+    ctx.strokeRect(imgX, imgY, imgWidth, imgHeight);
+
+    // 승패 캔버스 도장 드로잉
+    function drawCanvasStamp(centerX, centerY, text, isWin) {
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(isWin ? 12 * Math.PI / 180 : -12 * Math.PI / 180);
+      
+      ctx.font = '900 36px Montserrat, sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      const rectW = textWidth + 40;
+      const rectH = 65;
+      
+      // Shadow
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(-rectW/2 + 6, -rectH/2 + 6, rectW, rectH);
+      
+      // Border & Background
+      ctx.fillStyle = isWin ? '#e2f4eb' : '#ffdad6'; // Mint or Salmon
+      ctx.fillRect(-rectW/2, -rectH/2, rectW, rectH);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#000000';
+      ctx.strokeRect(-rectW/2, -rectH/2, rectW, rectH);
+      
+      // Text
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 0, 3);
+      
+      ctx.restore();
     }
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    state.shareImageFile = blob
-      ? new File([blob], `fitcheck_ootd_${state.score}.png`, { type: 'image/png' })
-      : null;
+    if (state.score > state.opponentScore) {
+      drawCanvasStamp(imgX + 162.5, imgY + 520, 'LOSE 💀', false);
+      drawCanvasStamp(imgX + 487.5, imgY + 520, 'WIN 🏆', true);
+    } else {
+      drawCanvasStamp(imgX + 162.5, imgY + 520, 'WIN 🏆', true);
+      drawCanvasStamp(imgX + 487.5, imgY + 520, 'LOSE 💀', false);
+    }
 
-    const canShareFile = Boolean(
-      state.shareImageFile &&
-      navigator.share &&
-      navigator.canShare &&
-      navigator.canShare({ files: [state.shareImageFile] })
-    );
-    dom.btnShareSystem?.classList.toggle('hidden', !canShareFile);
-    dom.instagramRedirectModal?.classList.remove('hidden');
-    playSound('success');
-  } catch (error) {
-    console.error('Canvas export failed', error instanceof Error ? error.message : error);
-    showToast('공유 카드를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+  } else {
+    // === 일반 모드: 단일 이미지 드로잉 ===
+    ctx.fillStyle = '#eeeeee';
+    ctx.fillRect(imgX, imgY, imgWidth, imgHeight);
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    const naturalWidth = imgElement.naturalWidth || imgElement.width || imgWidth;
+    const naturalHeight = imgElement.naturalHeight || imgElement.height || imgHeight;
+
+    let drawW = imgWidth;
+    let drawH = imgHeight;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    const containerRatio = imgWidth / imgHeight;
+    const imgRatio = naturalWidth / naturalHeight;
+
+    if (imgRatio > containerRatio) {
+      drawH = imgWidth / imgRatio;
+      offsetY = (imgHeight - drawH) / 2;
+    } else {
+      drawW = imgHeight * imgRatio;
+      offsetX = (imgWidth - drawW) / 2;
+    }
+
+    ctx.drawImage(imgElement, imgX + offsetX, imgY + offsetY, drawW, drawH);
+
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#000000';
+    ctx.strokeRect(imgX, imgY, imgWidth, imgHeight);
   }
+
+  // 5. 점수 및 등급 텍스트 합성
+  // 점수 백그라운드 스티커 박스
+  ctx.fillStyle = '#fff9e6'; // Cream
+  ctx.fillRect(215, 930, 650, 160);
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(215, 930, 650, 160);
+
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+
+  if (state.isBattleMode) {
+    ctx.font = '900 52px Montserrat, sans-serif';
+    ctx.fillText(`BATTLE ${state.score > state.opponentScore ? 'VICTORY 🏆' : 'DEFEAT 💀'}`, 540, 1000);
+    
+    ctx.font = 'bold 32px Lexend, sans-serif';
+    ctx.fillText(`상대방: ${state.opponentScore.toLocaleString()}점 VS 나: ${state.score.toLocaleString()}점`, 540, 1055);
+  } else {
+    ctx.font = '900 64px Montserrat, sans-serif';
+    ctx.fillText(`${state.score.toLocaleString()} / 10,000 PTS`, 540, 1005);
+    
+    ctx.font = 'bold 36px Lexend, sans-serif';
+    ctx.fillText(`상황: ${state.selectedTpo} | 티어: ${state.tier}`, 540, 1060);
+  }
+
+  // 6. 뼈 때리는 한줄평 멘트 (멀티라인 드로잉 처리)
+  ctx.fillStyle = '#ffefea'; // Peach
+  ctx.fillRect(115, 1130, 850, 180);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#000000';
+  ctx.strokeRect(115, 1130, 850, 180);
+
+  ctx.fillStyle = '#000000';
+  ctx.font = 'italic bold 28px Lexend, sans-serif';
+  ctx.textAlign = 'left';
+  
+  const roastWords = dom.resultRoastText.textContent;
+  wrapText(ctx, roastWords, 150, 1195, 780, 42);
+
+  // 7. 5대 스탯 바차트 합성
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.font = '900 32px Montserrat, sans-serif';
+  ctx.fillText('VIBE CHECK SPECS', 540, 1375);
+
+  const startStatY = 1430;
+  const colors = ['#eae6ff', '#e2f4eb', '#ffefea', '#fff9e6', '#ffffff'];
+
+  state.stats.forEach((stat, idx) => {
+    const curY = startStatY + (idx * 75);
+    
+    // 스탯 이름
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 22px Lexend, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(stat.name, 140, curY + 22);
+
+    // 스탯 바 테두리
+    const barWidth = 550;
+    const barHeight = 32;
+    ctx.strokeRect(360, curY, barWidth, barHeight);
+    
+    // 스탯 차오르는 바 그리기
+    ctx.fillStyle = colors[idx % colors.length];
+    const fillWidth = (stat.val / 100) * barWidth;
+    ctx.fillRect(360, curY, fillWidth, barHeight);
+    ctx.strokeRect(360, curY, fillWidth, barHeight);
+
+    // 스탯 백분율 수치
+    ctx.fillStyle = '#000000';
+    ctx.font = '900 24px Montserrat, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${stat.val}%`, 1000, curY + 24);
+  });
+
+  // 8. 풋터 마크 로고
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 26px Lexend, sans-serif';
+  ctx.fillText(state.isBattleMode ? '대결을 수락하고 덤벼라! @team.letsgo_fit' : '내 친구들은 몇점? @team.letsgo_fit', 540, 1850);
+
+  // 9. 최종 공유 카드는 사진, 점수, 상황, 티어와 팀 소개만 간결하게 담는다.
+  let shareImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+  if (!state.isBattleMode && state.improvedOotdImage) {
+    shareImage = new Image();
+    shareImage.src = state.improvedOotdImage;
+    await shareImage.decode();
+  }
+  drawFinalShareCard(ctx, canvas, shareImage, roastWords);
+
+  // 10. 이미지 공유 준비 및 모달 오픈
+  setTimeout(async () => {
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      state.shareImageDataUrl = dataUrl;
+      
+      // 모달에 미리보기 이미지 설정
+      if (dom.instagramPreviewImg) {
+        dom.instagramPreviewImg.src = dataUrl;
+      }
+
+      // Canvas -> Blob -> File 변환 (Web Share API용)
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (blob) {
+        const file = new File([blob], `fitcheck_ootd_${state.score}.png`, { type: 'image/png' });
+        state.shareImageFile = file;
+
+        // Web Share API 파일 전송 지원 여부 체크
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          if (dom.btnShareSystem) dom.btnShareSystem.classList.remove('hidden');
+        } else {
+          if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
+        }
+      } else {
+        if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
+      }
+
+      // 모달 오버레이 오픈 (사용자 인스타 연동 UX)
+      if (dom.instagramRedirectModal) {
+        dom.instagramRedirectModal.classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error("Canvas export failed", err);
+      showToast("이미지 렌더링에 실패했습니다. (CORS 보안 설정 우려)");
+    }
+  }, 100);
 }
 
-function drawFinalShareCard(ctx, canvas, image, roastText) {
+function drawFinalShareCard(ctx, canvas, image, roastWords) {
   canvas.width = 1080;
   canvas.height = 1920;
 
+  // 1. 이미지를 캔버스 전체에 꽉 채워 그리기 (cover 방식)
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
-  const scale = Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
-  const width = sourceWidth * scale;
-  const height = sourceHeight * scale;
+  const canvasW = 1080;
+  const canvasH = 1920;
+  const imgRatio = sourceWidth / sourceHeight;
+  const canvasRatio = canvasW / canvasH;
 
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-
-  const gradient = ctx.createLinearGradient(0, 950, 0, 1920);
-  gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  gradient.addColorStop(0.28, 'rgba(0, 0, 0, 0.72)');
-  gradient.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 900, canvas.width, 1020);
-
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fff';
-  ctx.font = '800 34px Montserrat, sans-serif';
-  ctx.fillText('OOTD COMBAT POWER', 80, 1260);
-
-  ctx.font = '900 150px Montserrat, sans-serif';
-  ctx.fillText(state.score.toLocaleString(), 72, 1415);
-
-  ctx.font = '700 38px Lexend, sans-serif';
-  ctx.fillText(`${state.selectedTpo} · ${state.tier}`, 82, 1490);
-
-  ctx.font = '700 34px Lexend, sans-serif';
-  const finalTextY = wrapText(ctx, roastText, 82, 1580, 916, 52);
-
-  if (state.improvedOotdImage) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-    ctx.font = '600 24px Lexend, sans-serif';
-    ctx.fillText('AI로 생성한 콘텐츠', 82, Math.min(finalTextY + 54, 1780));
+  let drawW, drawH, offsetX, offsetY;
+  if (imgRatio > canvasRatio) {
+    drawH = canvasH;
+    drawW = canvasH * imgRatio;
+    offsetX = (canvasW - drawW) / 2;
+    offsetY = 0;
+  } else {
+    drawW = canvasW;
+    drawH = canvasW / imgRatio;
+    offsetX = 0;
+    offsetY = (canvasH - drawH) / 2;
   }
 
-  ctx.fillStyle = '#fff';
-  ctx.font = '900 34px Montserrat, sans-serif';
-  ctx.fillText('@team.letsgo_fit', 82, 1830);
-  ctx.font = '600 25px Lexend, sans-serif';
-  ctx.fillText('패션을 더 재밌게, 오늘의 OOTD를 함께 체크해요.', 82, 1875);
+  // 캔버스 이미지 부드럽게 렌더링 설정
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, offsetX, offsetY, drawW, drawH);
+
+  // 2. 하단 그라데이션 오버레이 (텍스트 가독성을 위해 어둡게 처리)
+  const overlayGrad = ctx.createLinearGradient(0, 1100, 0, 1920);
+  overlayGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  overlayGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.45)');
+  overlayGrad.addColorStop(1, 'rgba(0, 0, 0, 0.85)');
+  ctx.fillStyle = overlayGrad;
+  ctx.fillRect(0, 1100, 1080, 820);
+
+  // 3. 좌측 하단 정보 렌더링 (X 시작점: 90px)
+  const startX = 90;
+
+  // 3-1. OOTD COMBAT POWER (작은 메타 정보)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 30px Montserrat, sans-serif';
+  ctx.fillText('OOTD COMBAT POWER', startX, 1420);
+
+  // 3-2. 패션력 포인트 (메인 텍스트 - 아주 크게)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 84px Montserrat, sans-serif';
+  const scoreText = `${state.score.toLocaleString()} PTS`;
+  ctx.fillText(scoreText, startX, 1520);
+
+  // 3-3. 상황과 티어 (하트 아이콘 포함)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 34px Lexend, sans-serif';
+  const tpoAndTier = `♡ 상황: ${state.selectedTpo}  ·  티어: ${state.tier}`;
+  ctx.fillText(tpoAndTier, startX, 1585);
+
+  // 3-4. 한줄평 (wrapText로 여러 줄 대응)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.font = '500 28px Lexend, sans-serif';
+  const roast = roastWords || (dom.resultRoastText ? dom.resultRoastText.textContent : '');
+  const lastY = wrapText(ctx, roast, startX, 1645, 900, 42);
+
+  // 3-5. AI 생성 표시 문구 (실제 추천코디 적용 후 AI로 생성했을 때만 한줄평 바로 아래 노출)
+  const isAiGenerated = !state.isBattleMode && state.improvedOotdImage;
+  if (isAiGenerated) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.textAlign = 'left';
+    ctx.font = '500 24px Lexend, sans-serif';
+    ctx.fillText('✨ AI로 생성한 콘텐츠', startX, lastY + 45);
+  }
+
+  // 4. 하단 중앙 브랜드 텍스트 (@team.letsgo_fit)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 30px Montserrat, sans-serif';
+  ctx.fillText('@team.letsgo_fit', 540, 1850);
 }
 
 // 텍스트 여러 줄 정렬 도우미
@@ -2079,42 +1915,53 @@ function fallbackCopyTextToClipboard(text) {
 // (앱인토스 SDK도 외부 앱 스킴을 여는 API를 제공하지 않음) 그래서 바로 웹 버전으로 연결한다.
 function openInstagramApp() {
   playSound('select');
-  window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+  window.open("https://www.instagram.com/", "_blank");
 }
 
+// 시스템 공유 API 호출 (Web Share API)
 async function shareSystem() {
-  if (!state.shareImageFile || !navigator.share) {
-    showToast('이 브라우저에서는 바로 공유할 수 없어요. 이미지를 저장해 주세요.');
+  playSound('select');
+  if (!state.shareImageFile) {
+    showToast("공유할 이미지 파일이 준비되지 않았습니다.");
     return;
   }
 
   try {
     await navigator.share({
       files: [state.shareImageFile],
-      title: 'FITCHECK! OOTD 결과',
-      text: `내 패션 전투력은 ${state.score.toLocaleString()}점!`,
+      title: 'FITCHECK! OOTD',
+      text: '내 OOTD 패션 점수를 확인해보세요! 📸',
     });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') return;
-    console.error('System share failed', error instanceof Error ? error.message : error);
-    showToast('공유하지 못했어요. 이미지를 저장해서 올려 주세요.');
+    showToast("공유가 완료되었습니다! ✨");
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error("System share failed", err);
+      showToast("공유 중 오류가 발생했습니다.");
+    }
   }
 }
 
+// 선택적 이미지 다운로드 실행
 function downloadShareImage() {
   if (!state.shareImageDataUrl) {
-    showToast('먼저 공유 카드를 만들어 주세요.');
+    showToast("다운로드할 이미지가 없습니다.");
     return;
   }
 
-  const downloadLink = document.createElement('a');
-  downloadLink.download = `fitcheck_ootd_${state.score}.png`;
-  downloadLink.href = state.shareImageDataUrl;
-  document.body.appendChild(downloadLink);
-  downloadLink.click();
-  downloadLink.remove();
-  showToast('공유 이미지를 저장했어요! 💾');
-  playSound('download');
+  try {
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `fitcheck_ootd_${state.score}.png`;
+    downloadLink.href = state.shareImageDataUrl;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
+    showToast("이미지가 기기에 저장되었습니다! 💾");
+    playSound('download');
+  } catch (err) {
+    console.error("Download failed", err);
+    showToast("이미지 다운로드에 실패했습니다.");
+  }
 }
 
 // 실행

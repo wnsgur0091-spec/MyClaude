@@ -31,7 +31,7 @@
 
   <!-- 통합 헤더 (모든 화면 크기에서 일관되게 힙한 로고 표시) -->
   <header id="app-header" class="w-full flex items-center justify-center pt-8 pb-4">
-    <h1 class="font-headline text-4xl md:text-5xl font-black text-black uppercase tracking-tighter drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] bg-white border-[3px] border-black px-6 py-2 rotate-[-2deg] cursor-pointer hover:rotate-[0deg] transition-all">
+    <h1 class="font-headline text-4xl md:text-5xl font-black text-black uppercase tracking-tighter drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] bg-white border-[3px] border-black px-6 py-2 rotate-[-2deg] cursor-pointer hover:rotate-[0deg] transition-all" onclick="location.reload()">
       FITCHECK!
     </h1>
   </header>
@@ -96,7 +96,7 @@
         </div>
       </div>
       <!-- 파일 인풋 요소는 업로드 영역 밖으로 이동하여 무한클릭 루프 및 다이얼로그 차단 현상 방지 -->
-      <input type="file" id="image-file-input" accept="image/jpeg,image/png,image/webp" class="hidden">
+      <input type="file" id="image-file-input" accept="image/*" class="hidden">
 
       <!-- TPO 상황선택 칩 -->
       <div class="w-full flex flex-col gap-3">
@@ -133,14 +133,6 @@
       <p class="text-[11px] leading-relaxed text-black/70 text-center px-2">
         측정 및 이미지 개선을 실행하면 선택한 사진이 분석을 위해 Google Gemini 또는 Cloudflare Workers AI로 전송됩니다. 사진은 결과 생성 목적으로만 처리되며 FitCheck 서버에 별도로 저장하지 않습니다.
       </p>
-
-      <div id="recent-results-card" class="hidden w-full bg-white border-[3px] border-black p-4 neo-shadow">
-        <div class="flex items-center justify-between gap-2 mb-3">
-          <h3 class="font-headline text-sm font-black">최근 패션 기록</h3>
-          <span class="text-[9px] font-bold text-on-surface-variant">사진은 이 기기에만 저장돼요 🔒</span>
-        </div>
-        <div id="recent-results-list" class="flex flex-col gap-2"></div>
-      </div>
     </section>
 
 
@@ -185,7 +177,9 @@
         <!-- 카드 상단 헤더 스트립 -->
         <div class="flex items-center justify-between p-4 border-b-[3px] border-black bg-cream">
           <h2 id="result-header-title" class="font-headline font-black italic text-lg tracking-tighter uppercase text-black">FITCHECK! RESULT</h2>
-          <div id="result-header-badge" class="hidden"></div>
+          <div id="result-header-badge" class="bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold rotate-[2deg] text-black">
+            QC PASSED ✅
+          </div>
         </div>
 
         <!-- 1:1 이미지 및 엔젤/데빌 마커 영역 (긴쪽 기준 맞춤 및 외곽선 안쪽 채우기 bg-[#eeeeee] flex items-center justify-center 적용) -->
@@ -243,14 +237,17 @@
             </div>
           </div>
 
-          <svg id="tag-lines-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10 hidden" aria-hidden="true"></svg>
-          <div id="tag-container" class="absolute inset-0 z-20 pointer-events-none hidden"></div>
+          <!-- 연결선 SVG 레이어 -->
+          <svg id="tag-lines-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+
+          <!-- 좌우 마진 태그 컨테이너 -->
+          <div id="tag-container" class="absolute inset-0 z-20 pointer-events-none"></div>
 
         </div>
 
         <!-- 이미지 바로 아래에 배치하는 친절한 인터랙션 가이드 팁 -->
         <div id="pin-interaction-guide" class="w-full text-center py-3 bg-[#fbfbfe] border-b-[2px] border-black text-[10px] font-bold tracking-wider text-black/60 select-none uppercase leading-relaxed px-4">
-          <span class="animate-pulse text-xs inline-block mr-1">✨</span><span id="pin-interaction-text">의상 태그를 탭하여 😇 베스트 아이템과 😈 보완 제안을 탐색해 보세요.</span>
+          <span class="animate-pulse text-xs inline-block mr-1">✨</span>의상 태그를 탭하여 <span class="text-black">😇 베스트 아이템</span>과 <span class="text-black">😈 보완 제안</span>을 탐색해 보세요.
         </div>
 
         <div id="improved-shopping-card" class="hidden w-full bg-secondary border-b-[3px] border-black p-4">
@@ -260,20 +257,7 @@
               <p id="improved-shopping-item" class="font-headline text-sm font-black truncate">추천 아이템</p>
               <p id="improved-shopping-description" class="text-[10px] font-bold mt-1"></p>
             </div>
-            <a id="improved-shopping-link" href="#" target="_blank" rel="noopener noreferrer" class="shrink-0 bg-white border-[2px] border-black px-3 py-2 text-xs font-black neo-shadow">이 코디 쇼핑하기 ↗</a>
-          </div>
-          <div id="improvement-change-summary" class="hidden mt-3 pt-3 border-t-[2px] border-black">
-            <p class="text-[9px] font-black uppercase mb-2">⚡ UPGRADE REPORT</p>
-            <div id="improvement-change-items" class="flex flex-wrap gap-1.5"></div>
-          </div>
-          <div id="remaining-recommendations" class="hidden mt-3 pt-3 border-t-[2px] border-black">
-            <div class="flex items-end justify-between gap-2 mb-2">
-              <div>
-                <p class="text-[9px] font-black uppercase">🛍️ 다른 추천 아이템</p>
-                <p class="text-[9px] font-bold text-on-surface-variant mt-0.5">나머지 처방도 상품으로 이어서 확인해 보세요.</p>
-              </div>
-            </div>
-            <div id="remaining-recommendation-items" class="flex flex-col gap-2"></div>
+            <a id="improved-shopping-link" href="#" target="_blank" rel="noopener noreferrer" class="shrink-0 bg-white border-[2px] border-black px-3 py-2 text-xs font-black neo-shadow">무신사 검색 ↗</a>
           </div>
         </div>
 
@@ -281,26 +265,15 @@
         <div id="feedback-tooltip" class="w-full bg-[#fff9e6] border-b-[3px] border-black p-5 hidden transition-all duration-300">
           <div class="flex justify-between items-start mb-2">
             <span id="tooltip-title" class="font-headline font-black text-xs uppercase px-2 py-0.5 border-[2px] border-black bg-secondary text-black">😈 WORST MATCH</span>
-            <div class="flex items-center gap-2">
-              <span id="tooltip-step" class="hidden bg-white border-[2px] border-black px-2 py-0.5 text-[9px] font-black"></span>
-              <button id="btn-close-tooltip" class="text-xl font-bold leading-none hover:text-error">&times;</button>
-            </div>
+            <button id="btn-close-tooltip" class="text-xl font-bold leading-none hover:text-error">&times;</button>
           </div>
           <p id="tooltip-content" class="text-xs font-bold mb-3 leading-relaxed text-black">추천 코멘트 내용</p>
-          <div id="tooltip-recommendation" class="hidden mb-3 bg-white border-[2px] border-black p-3 shadow-[3px_3px_0_#000]">
-            <p class="text-[9px] font-black uppercase tracking-wide">⚡ FITCHECK 처방전</p>
-            <p id="tooltip-recommend-item" class="font-headline text-sm font-black mt-1 text-black"></p>
-            <div id="tooltip-reason-tags" class="flex flex-wrap gap-1 mt-2"></div>
-            <p id="tooltip-recommend-reason" class="text-[10px] font-bold leading-relaxed mt-2 text-on-surface-variant"></p>
-            <button id="btn-next-improvement" type="button" class="hidden w-full mt-3 bg-cream border-[2px] border-black px-3 py-2 text-[10px] font-black text-left hover:bg-secondary transition-colors">다음 개선 포인트 보기 →</button>
-          </div>
-          <p id="style-edit-policy-note" class="hidden mb-3 bg-cream border-[2px] border-black p-2.5 text-[10px] font-bold leading-relaxed text-black">이 아이템은 사진 적용 대신 비슷한 상품 찾기만 지원해요.</p>
           <div class="flex gap-2">
-            <a id="link-shopping" href="" target="_blank" rel="noopener noreferrer" class="flex-1 bg-white border-[2px] border-black p-3 font-bold text-center text-xs neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all flex items-center justify-center gap-1 text-black">
-              비슷한 상품 찾기 <span class="material-symbols-outlined text-xs">open_in_new</span>
+            <a id="link-shopping" href="" target="_blank" class="flex-1 bg-white border-[2px] border-black p-3 font-bold text-center text-xs neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all flex items-center justify-center gap-1 text-black">
+              실제 상품 보기 <span class="material-symbols-outlined text-xs">open_in_new</span>
             </a>
             <button id="btn-apply-advice" class="flex-1 bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black">
-              AI로 입어보기 ⚡
+              추천 코디 적용 ⚡
             </button>
           </div>
         </div>
@@ -321,12 +294,6 @@
             <div class="inline-flex items-center gap-1.5 bg-cream border-[3px] border-black px-4 py-1.5 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transform rotate-[1deg]">
               <span class="text-xs font-black uppercase">티어:</span>
               <span id="result-tier-name" class="font-headline text-xs font-black tracking-wider text-black">골드</span>
-            </div>
-
-            <div id="achievement-card" class="hidden mt-4 bg-primary border-[3px] border-black p-3 text-left shadow-[3px_3px_0_#000] rotate-[-1deg]">
-              <p class="text-[9px] font-black uppercase">🏆 오늘의 칭호 · 업적 해금</p>
-              <p id="achievement-title" class="font-headline text-base font-black mt-1"></p>
-              <p id="achievement-description" class="text-[10px] font-bold mt-1"></p>
             </div>
 
           </div>
@@ -389,7 +356,7 @@
 
       <!-- 풋터 크레딧 -->
       <div class="flex flex-col items-center gap-2 mt-8 pb-8">
-        <a href="https://www.instagram.com/team.letsgo_fit/" target="_blank" rel="noopener noreferrer" class="text-[10px] font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-widest text-black flex items-center gap-0.5">
+        <a href="https://www.instagram.com/team.letsgo_fit/" target="_blank" class="text-[10px] font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-widest text-black flex items-center gap-0.5">
           Team Letsgo | @team.letsgo_fit <span class="material-symbols-outlined text-[10px]">open_in_new</span>
         </a>
       </div>
@@ -410,18 +377,23 @@
       <div class="border-[3px] border-black bg-[#eeeeee] h-64 overflow-hidden neo-shadow relative flex items-center justify-center">
         <img id="instagram-preview-img" src="" alt="Instagram Story Preview" class="h-full object-contain" />
       </div>
-      <p class="text-xs font-bold text-black leading-relaxed">생성된 카드를 인스타그램 스토리에 공유해보세요! 📸</p>
+      <p class="text-xs font-bold text-black leading-relaxed">
+        생성된 카드를 인스타그램 스토리에 공유해보세요! 📸
+      </p>
       <div class="bg-tertiary border-[2px] border-black p-3 text-[10px] font-bold text-black">
-        💡 Tip: 모바일에서는 바로 공유할 수 있고, 컴퓨터에서는 이미지를 저장한 뒤 업로드할 수 있습니다.
+        💡 Tip: 모바일 기기에서는 바로 공유가 가능하며, 컴퓨터에서는 이미지를 저장한 후 인스타에 업로드할 수 있습니다.
       </div>
       <div class="flex flex-col gap-2 mt-2">
-        <button id="btn-share-system" class="hidden w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+        <!-- 모바일 시스템 공유 버튼 (Web Share API 대응) -->
+        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5 hidden">
           스토리로 바로 공유 <span class="material-symbols-outlined text-xs">share</span>
         </button>
         <div class="flex gap-2 w-full">
+          <!-- 기기 저장 버튼 -->
           <button id="btn-download-image" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
             이미지 저장 <span class="material-symbols-outlined text-xs">download</span>
           </button>
+          <!-- 인스타그램 열기 버튼 -->
           <button id="btn-open-instagram-app" class="flex-1 bg-primary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
             인스타그램 열기 <span class="material-symbols-outlined text-xs">rocket_launch</span>
           </button>
@@ -437,43 +409,18 @@
         <h4 class="font-headline font-black text-sm uppercase text-black flex items-center gap-1">
           <span class="material-symbols-outlined text-sm font-bold">open_in_new</span> VIEW PRODUCT
         </h4>
-        <button id="btn-close-musinsa-modal" type="button" class="text-xl font-bold leading-none hover:text-error">&times;</button>
+        <button id="btn-close-musinsa-modal" class="text-xl font-bold leading-none hover:text-error">&times;</button>
       </div>
       <p class="text-xs font-bold text-black leading-relaxed">
-        추천 아이템인 <span class="bg-cream border-[2px] border-black px-1.5 py-0.5 font-bold" id="musinsa-item-name">독일군 스니커즈</span> 상품 검색 결과로 이동하시겠습니까?
+        추천 아이템인 <span class="bg-cream border-[2px] border-black px-1.5 py-0.5 font-bold" id="musinsa-item-name">독일군 스니커즈</span> 상품 페이지로 이동하시겠습니까?
       </p>
       <div class="flex gap-2 mt-2">
-        <button id="btn-close-musinsa-modal-cancel" type="button" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-bold text-xs uppercase hover:bg-gray-100 transition-all text-black">
+        <button id="btn-close-musinsa-modal-cancel" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-bold text-xs uppercase hover:bg-gray-100 transition-all text-black">
           취소
         </button>
-        <button id="btn-confirm-musinsa-redirect" type="button" class="flex-1 bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1">
+        <button id="btn-confirm-musinsa-redirect" class="flex-1 bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1">
           이동하기 <span class="material-symbols-outlined text-xs">open_in_new</span>
         </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 최근 패션 기록 상세 (BEFORE/AFTER) 팝업 -->
-  <div id="recent-result-detail-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-6">
-    <div class="bg-white border-[3px] border-black p-6 max-w-sm w-full neo-shadow flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
-      <div class="flex justify-between items-center border-b-[2px] border-black pb-2 bg-cream -mx-6 -mt-6 p-4">
-        <h4 id="recent-detail-title" class="font-headline font-black text-sm uppercase text-black truncate pr-2">코디 기록</h4>
-        <button id="btn-close-recent-result-detail" type="button" class="text-xl font-bold leading-none hover:text-error shrink-0">&times;</button>
-      </div>
-      <p id="recent-detail-meta" class="text-[10px] font-bold text-on-surface-variant -mt-2"></p>
-      <div class="flex flex-col gap-3">
-        <div>
-          <span class="inline-block bg-white border-[2px] border-black px-2 py-0.5 text-[9px] font-black uppercase mb-1 shadow-[2px_2px_0_#000]">BEFORE</span>
-          <div class="border-[3px] border-black bg-[#eeeeee] aspect-[3/4] overflow-hidden neo-shadow">
-            <img id="recent-detail-before-img" src="" alt="측정 당시 사진" class="w-full h-full object-cover" />
-          </div>
-        </div>
-        <div id="recent-detail-after-wrap" class="hidden">
-          <span class="inline-block bg-secondary border-[2px] border-black px-2 py-0.5 text-[9px] font-black uppercase mb-1 shadow-[2px_2px_0_#000]">AFTER</span>
-          <div class="border-[3px] border-black bg-[#eeeeee] aspect-[3/4] overflow-hidden neo-shadow">
-            <img id="recent-detail-after-img" src="" alt="개선 적용 후 사진" class="w-full h-full object-cover" />
-          </div>
-        </div>
       </div>
     </div>
   </div>
