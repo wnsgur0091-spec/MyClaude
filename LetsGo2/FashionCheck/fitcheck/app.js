@@ -43,6 +43,8 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_ANALYSIS_IMAGE_DIMENSION = 1600;
 const ALLOWED_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const RECENT_RESULTS_KEY = 'fitcheck.recentResults.v1';
+const RECENT_IMAGES_DB_NAME = 'fitcheck-recent-images';
+const RECENT_IMAGES_STORE = 'images';
 const BLOCKED_STYLE_EDIT_PATTERN = /(귀걸이|이어링|earrings?|반지|손가락\s*링|finger\s*ring|피어싱|piercings?)/i;
 const EDITABLE_STYLE_ITEM_TYPES = new Set(['clothing', 'bag', 'belt', 'shoes', 'watch', 'fashion-accessory']);
 
@@ -67,12 +69,16 @@ const dom = {
   imageFileInput: document.getElementById('image-file-input'),
   tpoChips: document.querySelectorAll('.tpo-chip'),
   btnSubmitScan: document.getElementById('btn-submit-scan'),
-  btnTrySample: document.getElementById('btn-try-sample'),
-  sampleTipCard: document.getElementById('sample-tip-card'),
-  sampleTipText: document.getElementById('sample-tip-text'),
   recentResultsCard: document.getElementById('recent-results-card'),
   recentResultsList: document.getElementById('recent-results-list'),
-  
+  recentResultDetailModal: document.getElementById('recent-result-detail-modal'),
+  btnCloseRecentResultDetail: document.getElementById('btn-close-recent-result-detail'),
+  recentDetailTitle: document.getElementById('recent-detail-title'),
+  recentDetailMeta: document.getElementById('recent-detail-meta'),
+  recentDetailBeforeImg: document.getElementById('recent-detail-before-img'),
+  recentDetailAfterImg: document.getElementById('recent-detail-after-img'),
+  recentDetailAfterWrap: document.getElementById('recent-detail-after-wrap'),
+
   // 로딩 화면
   loadingTitle: document.getElementById('loading-title'),
   loadingStatusText: document.getElementById('loading-status-text'),
@@ -216,7 +222,6 @@ function checkBattleQueryParameters() {
       const spanEl = dom.btnSubmitScan.querySelector('span');
       if (spanEl) spanEl.textContent = "배틀 측정 시작하기 🥊";
     }
-    dom.sampleTipCard.classList.add('hidden');
   }
 }
 
@@ -242,7 +247,6 @@ function bindEvents() {
 
   // 3. 파일 인풋 변경 처리
   dom.imageFileInput.addEventListener('change', handleCustomFileUpload);
-  dom.btnTrySample.addEventListener('click', trySampleExperience);
 
   // 4. 패션력 측정하기 실행
   dom.btnSubmitScan.addEventListener('click', startScanningSequence);
@@ -297,6 +301,11 @@ function bindEvents() {
   }
   if (dom.btnShareSystem) {
     dom.btnShareSystem.addEventListener('click', shareSystem);
+  }
+  if (dom.btnCloseRecentResultDetail) {
+    dom.btnCloseRecentResultDetail.addEventListener('click', () => {
+      dom.recentResultDetailModal.classList.add('hidden');
+    });
   }
   if (dom.btnDownloadImage) {
     dom.btnDownloadImage.addEventListener('click', downloadShareImage);
@@ -365,10 +374,6 @@ async function handleCustomFileUpload(e) {
     return;
   }
 
-  dom.btnTrySample.disabled = true;
-  dom.btnTrySample.textContent = '사진 확인 중...';
-  dom.sampleTipText.textContent = '선택한 OOTD가 분석 가능한 사진인지 확인하고 있어요.';
-
   try {
     const optimizedImage = await optimizeImageBlob(file);
     setUploadedImage(optimizedImage);
@@ -377,27 +382,6 @@ async function handleCustomFileUpload(e) {
   } catch (error) {
     console.warn('Image upload validation failed.', error);
     rejectImageUpload('사진을 읽을 수 없어요. 손상되지 않은 다른 사진을 선택해 주세요. 🧩');
-  }
-}
-
-async function trySampleExperience() {
-  if (state.currentOotdImage) return;
-  dom.btnTrySample.disabled = true;
-  const originalLabel = dom.btnTrySample.textContent;
-  dom.btnTrySample.textContent = '불러오는 중... ⏳';
-  try {
-    const response = await fetch('/assets/full-body-example.png');
-    if (!response.ok) throw new Error('Sample image could not be loaded.');
-    const optimizedImage = await optimizeImageBlob(await response.blob());
-    selectTpo('일상');
-    setUploadedImage(optimizedImage);
-    showToast('샘플 장착 완료! 10초 패션 심판 들어갑니다. ⚡');
-    startScanningSequence();
-  } catch (error) {
-    console.warn('Sample experience failed.', error);
-    showToast('샘플을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
-    dom.btnTrySample.disabled = false;
-    dom.btnTrySample.textContent = originalLabel;
   }
 }
 
@@ -433,18 +417,12 @@ function setUploadedImage(imageDataUrl) {
   dom.uploadPlaceholder.classList.add('hidden');
   dom.uploadPreviewContainer.classList.remove('hidden');
   dom.btnSubmitScan.disabled = false;
-  dom.btnTrySample.disabled = true;
-  dom.btnTrySample.textContent = '내 사진 선택됨 ✓';
-  dom.sampleTipText.textContent = '이제 샘플 대신 내 OOTD로 패션력을 측정할 차례예요.';
 }
 
 function rejectImageUpload(message) {
   dom.imageFileInput.value = '';
   if (!state.currentOotdImage) {
     dom.btnSubmitScan.disabled = true;
-    dom.btnTrySample.disabled = false;
-    dom.btnTrySample.textContent = '샘플 체험 ⚡';
-    dom.sampleTipText.textContent = '사진을 고르기 전에 결과 화면을 가볍게 구경해 보세요.';
   }
   showToast(message);
 }
@@ -1225,6 +1203,75 @@ function loadRecentResults() {
   }
 }
 
+// 최근 기록의 BEFORE/AFTER 이미지 저장소 (IndexedDB - 이 브라우저에만 영구 저장됨)
+function openRecentImagesDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(RECENT_IMAGES_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(RECENT_IMAGES_STORE)) {
+        request.result.createObjectStore(RECENT_IMAGES_STORE, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function putRecentImages(id, images) {
+  try {
+    const db = await openRecentImagesDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_IMAGES_STORE, 'readwrite');
+      tx.objectStore(RECENT_IMAGES_STORE).put({ id, ...images });
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (error) {
+    console.warn('Recent result images could not be saved.', error);
+  }
+}
+
+async function getRecentImages(id) {
+  try {
+    const db = await openRecentImagesDb();
+    const result = await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_IMAGES_STORE, 'readonly');
+      const request = tx.objectStore(RECENT_IMAGES_STORE).get(id);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+    return result;
+  } catch (error) {
+    console.warn('Recent result images could not be loaded.', error);
+    return null;
+  }
+}
+
+async function pruneRecentImages(keepIds) {
+  try {
+    const db = await openRecentImagesDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(RECENT_IMAGES_STORE, 'readwrite');
+      const store = tx.objectStore(RECENT_IMAGES_STORE);
+      const keepSet = new Set(keepIds);
+      const cursorRequest = store.openCursor();
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) return;
+        if (!keepSet.has(cursor.value.id)) cursor.delete();
+        cursor.continue();
+      };
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (error) {
+    console.warn('Recent result images could not be pruned.', error);
+  }
+}
+
 function saveRecentResult({ improved = false } = {}) {
   try {
     const records = loadRecentResults();
@@ -1240,12 +1287,36 @@ function saveRecentResult({ improved = false } = {}) {
       title: state.achievement?.title || '',
       improved,
     };
-    const nextRecords = [record, ...records.filter((item) => item.id !== state.currentRecordId)];
-    localStorage.setItem(RECENT_RESULTS_KEY, JSON.stringify(nextRecords.slice(0, 3)));
+    const nextRecords = [record, ...records.filter((item) => item.id !== state.currentRecordId)].slice(0, 3);
+    localStorage.setItem(RECENT_RESULTS_KEY, JSON.stringify(nextRecords));
+    putRecentImages(record.id, {
+      beforeImage: state.originalOotdImage,
+      afterImage: state.improvedOotdImage,
+    });
+    pruneRecentImages(nextRecords.map((item) => item.id));
     renderRecentResults();
   } catch (error) {
     console.warn('Recent result could not be saved.', error);
   }
+}
+
+async function openRecentResultDetail(record) {
+  const images = await getRecentImages(record.id);
+  if (!images?.beforeImage) {
+    showToast('이 기록의 사진을 더 이상 불러올 수 없어요.');
+    return;
+  }
+  dom.recentDetailTitle.textContent = record.title || `${record.tpo} 코디 도전자`;
+  const date = new Date(record.updatedAt || record.createdAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+  dom.recentDetailMeta.textContent = `${date} · ${record.tpo} · ${record.tier} · ${record.score.toLocaleString()}점`;
+  dom.recentDetailBeforeImg.src = images.beforeImage;
+  if (images.afterImage) {
+    dom.recentDetailAfterImg.src = images.afterImage;
+    dom.recentDetailAfterWrap.classList.remove('hidden');
+  } else {
+    dom.recentDetailAfterWrap.classList.add('hidden');
+  }
+  dom.recentResultDetailModal.classList.remove('hidden');
 }
 
 function renderRecentResults() {
@@ -1253,7 +1324,8 @@ function renderRecentResults() {
   dom.recentResultsList.textContent = '';
   records.forEach((record) => {
     const row = document.createElement('div');
-    row.className = 'border-[2px] border-black bg-cream px-3 py-2 flex items-center justify-between gap-3';
+    row.className = 'border-[2px] border-black bg-cream px-3 py-2 flex items-center justify-between gap-3 cursor-pointer hover:translate-x-[1px] hover:translate-y-[1px] transition-transform';
+    row.addEventListener('click', () => openRecentResultDetail(record));
 
     const copy = document.createElement('div');
     copy.className = 'min-w-0';
@@ -1584,15 +1656,14 @@ function renderVibeStats() {
     const colorClasses = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-cream', 'bg-[#c9c1ff]'];
     const barColor = colorClasses[idx % colorClasses.length];
     const rawDelta = stat.val - stat.originalVal;
-    const higherIsBetter = stat.higherIsBetter ?? getStatMetadata(stat.name).higherIsBetter;
-    const improvement = higherIsBetter ? rawDelta : -rawDelta;
     const baseline = Math.min(stat.originalVal, stat.val);
     const change = Math.abs(rawDelta);
     const changeLabel = rawDelta
       ? `${rawDelta > 0 ? '+' : ''}${rawDelta} ${rawDelta > 0 ? 'UP!' : 'DOWN!'}`
       : '';
-    const changeTextClass = improvement > 0 ? 'text-[#087f5b]' : 'text-error';
-    const changeBarClass = improvement > 0 ? 'bg-secondary' : 'bg-error';
+    // 스탯 성격(higherIsBetter)과 무관하게 수치가 오르면 초록, 내리면 빨강으로 표시
+    const changeTextClass = rawDelta > 0 ? 'text-[#087f5b]' : 'text-error';
+    const changeBarClass = rawDelta > 0 ? 'bg-secondary' : 'bg-error';
 
     const statItem = document.createElement('div');
     statItem.className = "flex flex-col gap-1 cursor-pointer group w-full";
@@ -1720,11 +1791,7 @@ function resetToUploadScreen() {
   dom.styleEditOverlay.classList.add('hidden');
   dom.styleEditOverlay.classList.remove('flex');
   dom.analysisErrorPanel.classList.add('hidden');
-  dom.btnTrySample.disabled = false;
-  dom.btnTrySample.textContent = '샘플 체험 ⚡';
-  dom.sampleTipText.textContent = '사진을 고르기 전에 결과 화면을 가볍게 구경해 보세요.';
-  dom.sampleTipCard.classList.remove('hidden');
-  
+
   // 마진 태그 및 연결선 초기화
   dom.tagContainer.textContent = '';
   dom.tagLinesSvg.textContent = '';

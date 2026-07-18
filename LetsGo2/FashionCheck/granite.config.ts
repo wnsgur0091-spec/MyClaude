@@ -3,7 +3,7 @@ import { defineConfig } from '@apps-in-toss/web-framework/config';
 export default defineConfig({
   appName: 'fitbattle',
   brand: {
-    displayName: '핏배틀',
+    displayName: '핏체크',
     primaryColor: '#3182F6',
     icon: 'https://static.toss.im/appsintoss/60759/3a40644b-0988-47c1-a00d-58b7a44180a5.png',
   },
