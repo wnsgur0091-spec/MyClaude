@@ -1109,17 +1109,16 @@ function renderResultDashboard() {
         dom.resultHeaderBadge.className = "bg-error-container border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-black rotate-[-2deg] text-black";
       }
     }
-    
+
     if (state.score > state.opponentScore) {
       dom.resultRoastText.textContent = `🎉 배틀 승리! 상대방의 밋밋한 착장(점수: ${state.opponentScore.toLocaleString()}점)을 당신의 힙스터 아우라로 완벽하게 제압하고 참교육했습니다. 친구에게 링크를 되돌려주고 승리를 자축하세요! 😎`;
     } else {
       dom.resultRoastText.textContent = `🚨 배틀 패배! 상대방의 견고한 가치관이 깃든 핏(점수: ${state.opponentScore.toLocaleString()}점)에 가로막혀 당신의 OOTD가 대완패를 당했습니다. 추천 코드를 가상 장착하여 복수전을 시작하세요! 😈`;
     }
   } else {
-    // 헤더 배지 복원
+    // 일반 모드에서는 헤더 배지 숨김 (배틀 모드의 승패 표시 전용)
     if (dom.resultHeaderBadge) {
-      dom.resultHeaderBadge.textContent = "QC PASSED ✅";
-      dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold rotate-[2deg] text-black";
+      dom.resultHeaderBadge.classList.add('hidden');
     }
     dom.resultTopOverlayTag.textContent = state.score >= 7000 ? "VOGUE PASS" : "EMERGENCY";
     dom.resultRoastText.textContent = getRoastComment(state.selectedTpo, state.score, state.isPatched);
@@ -1367,12 +1366,11 @@ function resetToUploadScreen() {
       dom.battleChallengeCard.classList.add('hidden');
     }
     
-    // 헤더 배지 복원
+    // 헤더 배지 숨김 (배틀 모드의 승패 표시 전용)
     if (dom.resultHeaderBadge) {
-      dom.resultHeaderBadge.textContent = "QC PASSED ✅";
-      dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-bold rotate-[2deg] text-black";
+      dom.resultHeaderBadge.classList.add('hidden');
     }
-    
+
     // 버튼 텍스트 복구
     if (dom.btnSubmitScan) {
       const spanEl = dom.btnSubmitScan.querySelector('span');
