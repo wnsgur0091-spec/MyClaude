@@ -5,7 +5,7 @@ export default defineConfig({
   brand: {
     displayName: '핏체크',
     primaryColor: '#3182F6',
-    icon: 'https://static.toss.im/appsintoss/60759/3a40644b-0988-47c1-a00d-58b7a44180a5.png',
+    icon: 'https://static.toss.im/appsintoss/60759/75807f3c-c768-4852-a5c6-41340264fc77.png',
   },
   permissions: [
     { name: 'photos', access: 'read' },
