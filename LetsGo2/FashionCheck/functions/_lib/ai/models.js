@@ -29,7 +29,7 @@ const MODEL_REGISTRY = Object.freeze({
 const FEATURE_CONFIG = Object.freeze({
   [AI_FEATURES.OUTFIT_ANALYSIS]: {
     environmentKey: 'AI_OUTFIT_ANALYSIS_MODEL',
-    defaultModel: 'gemini-3.5-flash',
+    defaultModel: 'gemini-3.1-flash-lite',
   },
   [AI_FEATURES.STYLE_EDIT]: {
     environmentKey: 'AI_STYLE_EDIT_MODEL',

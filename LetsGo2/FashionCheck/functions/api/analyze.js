@@ -1,10 +1,12 @@
 import { AI_FEATURES, resolveAiModel } from '../_lib/ai/models.js';
 import { runAiModel } from '../_lib/ai/run.js';
 import { OUTFIT_RESULT_SCHEMA, parseOutfitResult } from '../_lib/ai/outfit-result.js';
-import { toPublicAiError } from '../_lib/ai/errors.js';
+import { AI_ERROR_CODES, toPublicAiError } from '../_lib/ai/errors.js';
 import { json as jsonResponse, parseDataUrl } from '../_lib/http.js';
 
 const ALLOWED_TPOS = new Set(['일상', '데이트', '출근', '운동', '하객']);
+// 좌표/스키마 인식에 실패했을 때만 상위 모델로 한 번 재시도한다 (공간 추론 성능이 더 좋음).
+const COORDINATE_FALLBACK_MODEL = { id: 'gemini-3.5-flash', provider: 'gemini' };
 
 export async function onRequestPost(context) {
   try {
@@ -124,8 +126,31 @@ improvementSummary에는 해당 아이템이 이전 문제를 어떻게 해결�
       }
     };
 
-    const response = await runAiModel(model, env, requestBody);
-    return jsonResponse(parseOutfitResult(response));
+    let parsed;
+    try {
+      const response = await runAiModel(model, env, requestBody);
+      parsed = parseOutfitResult(response);
+    } catch (primaryError) {
+      // 좌표/스키마 구조가 깨진 응답(공간 추론 실패로 추정)일 때만 상위 모델로 재시도.
+      // 안전 차단/할당량 초과 등은 모델을 바꿔도 소용없으니 그대로 실패 처리한다.
+      if (primaryError?.code !== AI_ERROR_CODES.INVALID_RESPONSE || model.id === COORDINATE_FALLBACK_MODEL.id) {
+        throw primaryError;
+      }
+      console.warn('Primary model response failed validation, retrying with fallback model.', primaryError.message);
+      try {
+        const fallbackResponse = await runAiModel(COORDINATE_FALLBACK_MODEL, env, requestBody);
+        parsed = parseOutfitResult(fallbackResponse);
+      } catch (fallbackError) {
+        if (fallbackError?.code === AI_ERROR_CODES.QUOTA_EXCEEDED) {
+          return jsonResponse({
+            error: '더 정밀한 분석을 위해 상위 AI로 재시도했지만, 오늘의 사용량 한도에 도달해 처리하지 못했어요. 잠시 후 다시 시도해 주세요. 🪫',
+            code: AI_ERROR_CODES.QUOTA_EXCEEDED,
+          }, 429);
+        }
+        throw fallbackError;
+      }
+    }
+    return jsonResponse(parsed);
   } catch (error) {
     console.error('Analyze handler failed:', error);
     const publicError = toPublicAiError(error);
