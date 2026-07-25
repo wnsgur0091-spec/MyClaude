@@ -1,3 +1,5 @@
+import { share, saveBase64Data } from '@apps-in-toss/web-framework';
+
 // ========================================================
 // FITCHECK! CORE APP CONTROLLER
 // ========================================================
@@ -329,6 +331,8 @@ function bindEvents() {
       dom.musinsaRedirectModal.classList.add('hidden');
     });
   }
+
+
 }
 
 // ========================================================
@@ -878,8 +882,8 @@ function showPinTooltip(type, index = 0) {
     state.targetMusinsaUrl = `https://www.musinsa.com/search/goods?keyword=${query}`;
     dom.linkShopping.href = "#";
     
-    // 개선 전에는 적용 버튼만 노출하고 쇼핑 링크는 개선 완료 후 별도 카드에서 제공한다.
-    dom.linkShopping.classList.add('hidden');
+    // 무신사 쇼핑 링크는 개선 전/후 상관없이 언제든지 바로 선택할 수 있도록 항상 노출합니다.
+    dom.linkShopping.classList.remove('hidden');
     if (state.isPatched) {
       dom.btnApplyAdvice.classList.add('hidden'); // 이미 적용되었으면 감춤
     } else {
@@ -925,7 +929,8 @@ function startInlineStyleEdit(recommendItemName) {
   let step = 0;
   hideTooltip();
   dom.styleEditStatus.textContent = messages[0];
-  dom.styleEditScorePanel.classList.add('hidden');
+  dom.styleEditScorePanel.classList.add('is-waiting');
+  dom.styleEditScorePanel.classList.remove('hidden');
   dom.styleEditScoreDelta.textContent = '';
   dom.styleEditOverlay.classList.remove('hidden');
   dom.styleEditOverlay.classList.add('flex');
@@ -942,7 +947,7 @@ function startInlineStyleEdit(recommendItemName) {
 }
 
 function animateInlineScore(from, to) {
-  dom.styleEditScorePanel.classList.remove('hidden');
+  dom.styleEditScorePanel.classList.remove('is-waiting');
   const delta = to - from;
   dom.styleEditScoreDelta.textContent = delta >= 0 ? `+${delta.toLocaleString()} UP!` : `${delta.toLocaleString()}`;
   dom.styleEditStatus.textContent = delta > 0
@@ -1869,14 +1874,7 @@ async function exportInstagramStory() {
         const file = new File([blob], `fitcheck_ootd_${state.score}.png`, { type: 'image/png' });
         state.shareImageFile = file;
 
-        // Web Share API 파일 전송 지원 여부 체크
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          if (dom.btnShareSystem) dom.btnShareSystem.classList.remove('hidden');
-        } else {
-          if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
-        }
-      } else {
-        if (dom.btnShareSystem) dom.btnShareSystem.classList.add('hidden');
+        // Web Share API 파일 전송용 파일 세팅
       }
 
       // 모달 오버레이 오픈 (사용자 인스타 연동 UX)
@@ -1889,6 +1887,8 @@ async function exportInstagramStory() {
     }
   }, 100);
 }
+
+
 
 function drawFinalShareCard(ctx, canvas, image, roastWords) {
   canvas.width = 1080;
@@ -2211,26 +2211,58 @@ async function openInstagramApp() {
   }
 }
 
-// 시스템 공유 API 호출 (Web Share API)
+// 시스템 공유 API 호출 (Apps-in-Toss SDK 및 Web Share API 지원)
 async function shareSystem() {
   playSound('select');
-  if (!state.shareImageFile) {
-    showToast("공유할 이미지 파일이 준비되지 않았습니다.");
-    return;
+
+  // 1. 앱인토스 환경인 경우 SDK의 saveBase64Data API 우선 호출
+  // (참고: 앱인토스 환경에서는 saveBase64Data를 통해 기기에 이미지를 저장하거나 OS 공유 시트를 호출하여 이미지 공유가 가능합니다.)
+  try {
+    if (state.shareImageDataUrl) {
+      // data:image/png;base64, 부분 제외한 순수 base64 데이터 추출
+      const base64Data = state.shareImageDataUrl.split(',')[1];
+      await saveBase64Data({
+        data: base64Data,
+        fileName: `fitcheck_ootd_${state.score}.png`,
+        mimeType: 'image/png'
+      });
+      showToast("이미지가 저장되었습니다! 인스타 스토리에 공유해 보세요 📸");
+      
+      // 인스타 앱 열기 시도
+      setTimeout(() => {
+        openInstagramApp();
+      }, 1200);
+      return;
+    }
+  } catch (sdkError) {
+    console.warn("Apps-in-Toss SDK saveBase64Data failed or not supported, falling back...", sdkError);
   }
 
-  try {
-    await navigator.share({
-      files: [state.shareImageFile],
-      title: 'FITCHECK! OOTD',
-      text: '내 OOTD 패션 점수를 확인해보세요! 📸',
-    });
-    showToast("공유가 완료되었습니다! ✨");
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      console.error("System share failed", err);
-      showToast("공유 중 오류가 발생했습니다.");
+  // 2. 모바일 브라우저의 Web Share API 이미지 파일 공유 지원 시 (Safari, Chrome 등)
+  if (state.shareImageFile && navigator.share && navigator.canShare && navigator.canShare({ files: [state.shareImageFile] })) {
+    try {
+      await navigator.share({
+        files: [state.shareImageFile],
+        title: 'FITCHECK! OOTD',
+        text: `내 OOTD 패션 점수는 ${state.score}점! 핏체크에서 확인해보세요! 📸`,
+      });
+      showToast("공유가 완료되었습니다! ✨");
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error("System share failed", err);
+        showToast("공유 중 오류가 발생했습니다.");
+      }
+      return;
     }
+  }
+
+  // 3. 둘 다 지원 안 될 때 (PC 웹 등)
+  try {
+    await navigator.clipboard.writeText(`[FitCheck] 오늘의 패션력 점수는 ${state.score}점! 핏체크에서 OOTD 패션력을 대결해보세요! 🥊\n${window.location.origin}`);
+    showToast("결과 문구가 복사되었습니다! 공유하고 싶은 곳에 붙여넣어 보세요 📋");
+  } catch (clipErr) {
+    showToast("공유 기능을 지원하지 않는 브라우저입니다.");
   }
 }
 
