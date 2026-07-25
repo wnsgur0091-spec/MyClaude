@@ -11,36 +11,26 @@ body {
   font-family: 'Lexend', sans-serif;
   background-color: #eae6ff; /* Lavender */
   overflow-x: hidden;
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
 }
 
-/* Keep the AI style upgrade dialog stable as its status and score change. */
+/* Keep the style-remix dialog widths stable as its content changes. */
 .style-edit-dialog {
-  width: calc(100vw - 4rem);
-  max-width: 300px;
-  min-height: 180px;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.style-edit-status {
-  width: 100%;
-  min-width: 0;
-  min-height: 3em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow-wrap: anywhere;
+  width: min(250px, calc(100vw - 4rem));
 }
 
 .style-edit-score-panel {
-  min-height: 58px;
+  width: 100%;
 }
 
-.style-edit-score-panel.is-waiting {
-  visibility: hidden;
+/* Prevent proportional digits from shifting during the score count-up. */
+#style-edit-score {
+  display: inline-block;
+  width: 6ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 h1, h2, h3, h4, h5, h6 {
