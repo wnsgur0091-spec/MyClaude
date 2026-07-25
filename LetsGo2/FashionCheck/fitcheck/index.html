@@ -425,7 +425,7 @@
     <div class="bg-white border-[3px] border-black p-6 max-w-sm w-full neo-shadow flex flex-col gap-4">
       <div class="flex justify-between items-center border-b-[2px] border-black pb-2 bg-cream -mx-6 -mt-6 p-4">
         <h4 class="font-headline font-black text-sm uppercase text-black flex items-center gap-1">
-          <span class="material-symbols-outlined text-sm font-bold">share</span> SHARE
+          <span class="material-symbols-outlined text-sm font-bold">share</span> INSTAGRAM STORY
         </h4>
         <button id="btn-close-redirect-modal" class="text-xl font-bold leading-none hover:text-error">&times;</button>
       </div>
@@ -434,16 +434,26 @@
         <img id="instagram-preview-img" src="" alt="Instagram Story Preview" class="h-full object-contain" />
       </div>
       <p class="text-xs font-bold text-black leading-relaxed">
-        생성된 결과 이미지를 다른 사람과 공유하거나 저장할 수 있습니다.
+        생성된 카드를 인스타그램 스토리에 공유해보세요! 📸
       </p>
       <div class="bg-tertiary border-[2px] border-black p-3 text-[10px] font-bold text-black">
-        💡 Tip: 이미지 공유를 선택하면 인스타 스토리 공유, 카카오톡 전송, 갤러리 저장을 모두 하실 수 있습니다.
+        💡 Tip: 이미지를 저장한 후 인스타그램에서 스토리로 업로드해보세요.
       </div>
       <div class="flex flex-col gap-2 mt-2">
-        <!-- 모바일 시스템 공유 버튼 (Apps-in-Toss SDK 및 Web Share API 대응) -->
-        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
-          이미지 공유하기 <span class="material-symbols-outlined text-xs">share</span>
+        <!-- 모바일 시스템 공유 버튼 (Web Share API 대응) -->
+        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5 hidden">
+          스토리로 바로 공유 <span class="material-symbols-outlined text-xs">share</span>
         </button>
+        <div class="flex gap-2 w-full">
+          <!-- 기기 저장 버튼 -->
+          <button id="btn-download-image" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+            이미지 저장 <span class="material-symbols-outlined text-xs">download</span>
+          </button>
+          <!-- 인스타그램 열기 버튼 -->
+          <button id="btn-open-instagram-app" class="flex-1 bg-primary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+            인스타그램 열기 <span class="material-symbols-outlined text-xs">rocket_launch</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
