@@ -26,28 +26,28 @@
         </div>
         <!-- 2. 사진 가이드 -->
         <div class="tutorial-slide shrink-0 w-full snap-start p-5 text-center flex flex-col items-center">
-          <span class="inline-block bg-secondary border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">PHOTO GUIDE</span>
+          <span class="inline-block bg-secondary border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">PHOTO</span>
           <h2 class="font-headline text-2xl font-black mt-3">전신이 다 보이면<br>분석이 더 정확해요!</h2>
           <img src="/assets/full-body-example.png" alt="머리부터 신발까지 중앙에 보이는 전신샷 예시" class="w-full aspect-square object-contain my-3 border-[3px] border-black bg-primary">
           <p class="text-xs font-bold">머리부터 신발까지 잘리지 않게, 몸 전체를 화면 중앙에 맞춰 주세요.</p>
         </div>
         <!-- 3. TPO 선택 -->
         <div class="tutorial-slide shrink-0 w-full snap-start p-5 text-center flex flex-col items-center">
-          <span class="inline-block bg-tertiary border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">STEP 2</span>
+          <span class="inline-block bg-tertiary border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">TPO</span>
           <h2 class="font-headline text-2xl font-black mt-3">오늘 어떤 상황인가요?</h2>
           <div class="w-full aspect-square my-3 border-[3px] border-black bg-tertiary flex items-center justify-center text-7xl">☕💼🏋️</div>
           <p class="text-xs font-bold">일상, 데이트, 출근처럼 상황(TPO)을 고르면 그에 맞게 AI가 패션력을 채점해줘요.</p>
         </div>
         <!-- 4. AI 측정 -->
         <div class="tutorial-slide shrink-0 w-full snap-start p-5 text-center flex flex-col items-center">
-          <span class="inline-block bg-cream border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">STEP 3</span>
+          <span class="inline-block bg-cream border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">AI VERDICT</span>
           <h2 class="font-headline text-2xl font-black mt-3">AI가 채점해드려요 🤖</h2>
           <div class="w-full aspect-square my-3 border-[3px] border-black bg-cream flex items-center justify-center text-7xl">🔍✨</div>
           <p class="text-xs font-bold">Google Gemini가 사진을 분석해서 점수, 한줄평, 개선 포인트까지 알려줘요. 결과는 모두 AI가 생성해요.</p>
         </div>
         <!-- 5. 공유/배틀 -->
         <div class="tutorial-slide shrink-0 w-full snap-start p-5 text-center flex flex-col items-center">
-          <span class="inline-block bg-[#c9c1ff] border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">STEP 4</span>
+          <span class="inline-block bg-[#c9c1ff] border-[2px] border-black px-3 py-1 text-[10px] font-black rotate-[-2deg]">BATTLE</span>
           <h2 class="font-headline text-2xl font-black mt-3">친구와 배틀도 가능해요 🥊</h2>
           <div class="w-full aspect-square my-3 border-[3px] border-black bg-[#c9c1ff] flex items-center justify-center text-7xl">📲🔗</div>
           <p class="text-xs font-bold">결과를 인스타에 공유하거나, 링크로 친구에게 도전장을 보내 패션력 대결을 해보세요!</p>
@@ -89,6 +89,8 @@
       <div class="bg-tertiary border-[3px] border-black neo-shadow px-4 py-2.5 rotate-[1deg] w-full text-center">
         <p class="font-bold text-sm uppercase tracking-tight">다른 사람 눈 테러하기 전에 패션 점검부터 하세요.</p>
       </div>
+
+
 
       <!-- 배틀 모드 전용 도전자 카드 오버레이 (기본 hidden) -->
       <div id="battle-challenge-card" class="w-full bg-[#ffdad6] border-[3px] border-black p-4 neo-shadow flex flex-col gap-2 rotate-[-1deg] hidden">
@@ -184,6 +186,13 @@
       <p class="text-[11px] leading-relaxed text-black/70 text-center px-2">
         측정 및 이미지 개선을 실행하면 선택한 사진이 분석을 위해 Google Gemini 또는 Cloudflare Workers AI로 전송됩니다. 사진은 결과 생성 목적으로만 처리되며 FitCheck 서버에 별도로 저장하지 않습니다.
       </p>
+
+      <!-- 풋터 크레딧 -->
+      <div class="flex flex-col items-center gap-2 mt-4 pb-4">
+        <a href="https://www.instagram.com/team.letsgo_fit/" target="_blank" class="text-[10px] font-bold opacity-50 hover:opacity-100 transition-opacity uppercase tracking-widest text-black flex items-center gap-0.5">
+          Team Letsgo | @team.letsgo_fit <span class="material-symbols-outlined text-[10px]">open_in_new</span>
+        </a>
+      </div>
     </section>
 
 
@@ -275,12 +284,12 @@
             <button id="btn-show-after" class="px-2 py-1 text-[10px] font-black bg-secondary">AFTER</button>
           </div>
 
-          <div id="style-edit-overlay" class="absolute inset-0 z-40 hidden bg-white/60 backdrop-blur-[3px] flex-col items-center justify-center text-center p-6">
+          <div id="style-edit-overlay" class="absolute inset-0 z-40 hidden bg-white/60 backdrop-blur-[3px] flex-col items-center justify-center text-center p-6" aria-live="polite">
             <div class="w-16 h-16 rounded-full border-[4px] border-black border-dashed animate-spin"></div>
-            <div class="mt-4 bg-secondary border-[3px] border-black px-4 py-3 shadow-[3px_3px_0_#000]">
+            <div class="style-edit-dialog mt-4 bg-secondary border-[3px] border-black px-4 py-3 shadow-[3px_3px_0_#000]">
               <p class="font-headline text-sm font-black">AI 스타일 리믹스 중...</p>
-              <p id="style-edit-status" class="text-[10px] font-bold mt-1">추천 코디를 자연스럽게 입혀보는 중...</p>
-              <div id="style-edit-score-panel" class="hidden mt-3 bg-white border-[2px] border-black px-3 py-2">
+              <p id="style-edit-status" class="style-edit-status text-[10px] font-bold mt-1">추천 코디를 자연스럽게 입혀보는 중...</p>
+              <div id="style-edit-score-panel" class="style-edit-score-panel is-waiting mt-3 bg-white border-[2px] border-black px-3 py-2">
                 <p class="text-[9px] font-black">FASHION POWER</p>
                 <p class="font-headline font-black"><span id="style-edit-score">0</span> <span id="style-edit-score-delta" class="text-error text-xs"></span></p>
               </div>
@@ -416,7 +425,7 @@
     <div class="bg-white border-[3px] border-black p-6 max-w-sm w-full neo-shadow flex flex-col gap-4">
       <div class="flex justify-between items-center border-b-[2px] border-black pb-2 bg-cream -mx-6 -mt-6 p-4">
         <h4 class="font-headline font-black text-sm uppercase text-black flex items-center gap-1">
-          <span class="material-symbols-outlined text-sm font-bold">share</span> INSTAGRAM STORY
+          <span class="material-symbols-outlined text-sm font-bold">share</span> SHARE
         </h4>
         <button id="btn-close-redirect-modal" class="text-xl font-bold leading-none hover:text-error">&times;</button>
       </div>
@@ -425,26 +434,16 @@
         <img id="instagram-preview-img" src="" alt="Instagram Story Preview" class="h-full object-contain" />
       </div>
       <p class="text-xs font-bold text-black leading-relaxed">
-        생성된 카드를 인스타그램 스토리에 공유해보세요! 📸
+        생성된 결과 이미지를 다른 사람과 공유하거나 저장할 수 있습니다.
       </p>
       <div class="bg-tertiary border-[2px] border-black p-3 text-[10px] font-bold text-black">
-        💡 Tip: 이미지를 저장한 후 인스타그램에서 스토리로 업로드해보세요.
+        💡 Tip: 이미지 공유를 선택하면 인스타 스토리 공유, 카카오톡 전송, 갤러리 저장을 모두 하실 수 있습니다.
       </div>
       <div class="flex flex-col gap-2 mt-2">
-        <!-- 모바일 시스템 공유 버튼 (Web Share API 대응) -->
-        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5 hidden">
-          스토리로 바로 공유 <span class="material-symbols-outlined text-xs">share</span>
+        <!-- 모바일 시스템 공유 버튼 (Apps-in-Toss SDK 및 Web Share API 대응) -->
+        <button id="btn-share-system" class="w-full bg-secondary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
+          이미지 공유하기 <span class="material-symbols-outlined text-xs">share</span>
         </button>
-        <div class="flex gap-2 w-full">
-          <!-- 기기 저장 버튼 -->
-          <button id="btn-download-image" class="flex-1 bg-[#eeeeee] border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
-            이미지 저장 <span class="material-symbols-outlined text-xs">download</span>
-          </button>
-          <!-- 인스타그램 열기 버튼 -->
-          <button id="btn-open-instagram-app" class="flex-1 bg-primary border-[2px] border-black p-3 font-headline font-black text-xs uppercase neo-shadow hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-black flex items-center justify-center gap-1.5">
-            인스타그램 열기 <span class="material-symbols-outlined text-xs">rocket_launch</span>
-          </button>
-        </div>
       </div>
     </div>
   </div>

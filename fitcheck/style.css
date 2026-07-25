@@ -13,6 +13,36 @@ body {
   overflow-x: hidden;
 }
 
+/* Keep the AI style upgrade dialog stable as its status and score change. */
+.style-edit-dialog {
+  width: calc(100vw - 4rem);
+  max-width: 300px;
+  min-height: 180px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.style-edit-status {
+  width: 100%;
+  min-width: 0;
+  min-height: 3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-wrap: anywhere;
+}
+
+.style-edit-score-panel {
+  min-height: 58px;
+}
+
+.style-edit-score-panel.is-waiting {
+  visibility: hidden;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Montserrat', sans-serif;
 }
