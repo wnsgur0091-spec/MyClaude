@@ -1278,34 +1278,21 @@ function restoreRecentCheck(record) {
   state.currentRecordId = record.id;
   state.recordCreatedAt = record.createdAt;
 
-  if (!record.improvedImage) {
-    // 개선(before/after)을 적용하지 않은 기록은 캐시로 때우지 않고,
-    // 저장된 사진으로 실제 재측정을 수행해 Cloudflare Worker를 다시 다녀온다.
-    state.currentOotdImage = record.originalImage;
-    state.originalOotdImage = record.originalImage;
-    state.improvedOotdImage = null;
-    state.apiData = null;
-    dom.uploadPreviewImg.src = record.originalImage;
-    dom.uploadPlaceholder.classList.add('hidden');
-    dom.uploadPreviewContainer.classList.remove('hidden');
-    dom.btnSubmitScan.disabled = false;
-    selectTpo(record.tpo);
-    startScanningSequence();
-    return;
-  }
-
-  // 개선까지 마친 기록은 저장된 스냅샷(분석 결과 + 사진)을 그대로 복원
+  // 패션력만 체크했든 개선까지 마쳤든, 저장된 스냅샷(분석 결과 + 사진)을 그대로 복원한다.
+  // (AI 재호출 없이 캐시된 apiData를 재사용)
   state.selectedTpo = record.tpo;
   state.apiData = record.apiData;
   state.originalOotdImage = record.originalImage;
-  state.improvedOotdImage = record.improvedImage;
-  state.currentOotdImage = record.improvedImage;
+  state.improvedOotdImage = record.improvedImage || null;
+  state.currentOotdImage = record.improvedImage || record.originalImage;
 
   calculateFashionResults();
 
-  state.isPatched = true;
-  if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
-  if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
+  const hasImprovement = !!record.improvedImage;
+  state.isPatched = hasImprovement;
+  if (dom.imageVersionToggle) dom.imageVersionToggle.classList.toggle('hidden', !hasImprovement);
+  // 미개선 기록은 calculateFashionResults()가 세팅한 VOGUE PASS/EMERGENCY 태그를 그대로 둔다.
+  if (hasImprovement && dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
 
   if (dom.appHeader) dom.appHeader.classList.remove('hidden');
   dom.screenUpload.classList.remove('active-screen');
