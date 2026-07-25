@@ -1,5 +1,27 @@
 import { share, saveBase64Data } from '@apps-in-toss/web-framework';
 
+// 모바일 브라우저(크롬 등)의 시스템 글자 크기 배율(Accessibility Zoom)에 의해 레이아웃이 깨지는 현상 보정
+(function adjustFontScale() {
+  try {
+    const docEl = document.documentElement;
+    const dummy = document.createElement('div');
+    dummy.style.width = '10rem';
+    dummy.style.position = 'absolute';
+    dummy.style.visibility = 'hidden';
+    docEl.appendChild(dummy);
+    const actualSize = dummy.getBoundingClientRect().width / 10;
+    docEl.removeChild(dummy);
+
+    const baseFontSize = 16;
+    if (actualSize && Math.abs(actualSize - baseFontSize) > 0.1) {
+      const scale = baseFontSize / actualSize;
+      docEl.style.setProperty('font-size', `${scale * 100}%`, 'important');
+    }
+  } catch (e) {
+    console.warn("Failed to adjust font scale", e);
+  }
+})();
+
 // ========================================================
 // FITCHECK! CORE APP CONTROLLER
 // ========================================================
@@ -126,12 +148,14 @@ const dom = {
   battleChallengeCard: document.getElementById('battle-challenge-card'),
   battleTpoBadge: document.getElementById('battle-tpo-badge'),
   opponentScoreDisplay: document.getElementById('opponent-score-display'),
-  battleVersusContainer: document.getElementById('battle-versus-container'),
-  resultOotdImgChallenger: document.getElementById('result-ootd-img-challenger'),
-  stampOpp: document.getElementById('stamp-opp'),
-  stampChallenger: document.getElementById('stamp-challenger'),
+  battleScoreboardBanner: document.getElementById('battle-scoreboard-banner'),
   vsOppScore: document.getElementById('vs-opp-score'),
   vsOppTier: document.getElementById('vs-opp-tier'),
+  vsMyScore: document.getElementById('vs-my-score'),
+  vsMyTier: document.getElementById('vs-my-tier'),
+  vsMyIcon: document.getElementById('vs-my-icon'),
+  battleResultBadge: document.getElementById('battle-result-badge'),
+  battleResultStamp: document.getElementById('battle-result-stamp'),
   resultHeaderBadge: document.getElementById('result-header-badge'),
   resultTopOverlayBadge: document.getElementById('result-top-overlay-badge'),
   
@@ -587,23 +611,24 @@ function calculateFashionResults() {
 
   // 비주얼 이미지 및 배틀 레이아웃 세팅
   if (state.isBattleMode) {
-    // 5:5 분할 매치 화면 연동
-    dom.resultOotdImg.classList.add('hidden');
-    dom.battleVersusContainer.classList.remove('hidden');
-    dom.resultOotdImgChallenger.src = state.currentOotdImage;
-    
-    // 핀 마커 및 툴팁 감춤
-    dom.tagContainer.classList.add('hidden');
-    dom.tagLinesSvg.classList.add('hidden');
-    dom.feedbackTooltip.classList.add('hidden');
-    if (dom.resultTopOverlayBadge) dom.resultTopOverlayBadge.classList.add('hidden');
-    if (dom.pinInteractionGuide) dom.pinInteractionGuide.classList.add('hidden');
+    // 5:5 분할 매치 화면 제거하고 탑 스코어 배너로 대체
+    dom.battleScoreboardBanner.classList.remove('hidden');
+    dom.resultOotdImg.classList.remove('hidden');
+    dom.resultOotdImg.src = state.currentOotdImage;
 
-    // 상대방 스펙 바인딩
+    // 배틀 모드에서도 엔젤/데빌 핀 배치 및 가이드 표시 유지
+    setupPins();
+    if (dom.resultTopOverlayBadge) dom.resultTopOverlayBadge.classList.remove('hidden');
+    if (dom.pinInteractionGuide) dom.pinInteractionGuide.classList.remove('hidden');
+
+    // 스코어보드 정보 바인딩
     dom.vsOppScore.textContent = `${state.opponentScore.toLocaleString()}점`;
     dom.vsOppTier.textContent = calculateTier(state.opponentScore);
+    
+    dom.vsMyScore.textContent = `${state.score.toLocaleString()}점`;
+    dom.vsMyTier.textContent = calculateTier(state.score);
 
-    // 승패 판정에 따른 스탬프 오버레이
+    // 승패 판정에 따른 스탬프 오버레이 및 배너 연출
     const winStampHTML = `
       <div class="bg-secondary border-[3px] border-black text-black px-4 py-2 font-headline font-black text-base rotate-[12deg] shadow-[3px_3px_0px_rgba(0,0,0,1)] uppercase tracking-wider select-none scale-110">
         WIN 🏆
@@ -615,20 +640,24 @@ function calculateFashionResults() {
       </div>
     `;
 
-    dom.stampOpp.classList.remove('hidden');
-    dom.stampChallenger.classList.remove('hidden');
-
+    dom.battleResultStamp.classList.remove('hidden');
+    
     if (state.score > state.opponentScore) {
-      dom.stampChallenger.innerHTML = winStampHTML;
-      dom.stampOpp.innerHTML = loseStampHTML;
+      dom.battleResultStamp.innerHTML = winStampHTML;
+      dom.battleResultBadge.textContent = "VICTORY 🎉";
+      dom.battleResultBadge.className = "text-[9px] font-black mt-1.5 text-secondary uppercase tracking-tight";
+      if (dom.vsMyIcon) dom.vsMyIcon.textContent = "🏆";
     } else {
-      dom.stampChallenger.innerHTML = loseStampHTML;
-      dom.stampOpp.innerHTML = winStampHTML;
+      dom.battleResultStamp.innerHTML = loseStampHTML;
+      dom.battleResultBadge.textContent = "DEFEAT 💀";
+      dom.battleResultBadge.className = "text-[9px] font-black mt-1.5 text-error uppercase tracking-tight";
+      if (dom.vsMyIcon) dom.vsMyIcon.textContent = "💀";
     }
   } else {
     // 일반 모드 렌더링
+    dom.battleScoreboardBanner.classList.add('hidden');
+    dom.battleResultStamp.classList.add('hidden');
     dom.resultOotdImg.classList.remove('hidden');
-    dom.battleVersusContainer.classList.add('hidden');
     dom.resultOotdImg.src = state.currentOotdImage;
     
     // Angel & Devil 핀 배치 및 내용 세팅
@@ -929,8 +958,7 @@ function startInlineStyleEdit(recommendItemName) {
   let step = 0;
   hideTooltip();
   dom.styleEditStatus.textContent = messages[0];
-  dom.styleEditScorePanel.classList.add('is-waiting');
-  dom.styleEditScorePanel.classList.remove('hidden');
+  dom.styleEditScorePanel.classList.add('hidden');
   dom.styleEditScoreDelta.textContent = '';
   dom.styleEditOverlay.classList.remove('hidden');
   dom.styleEditOverlay.classList.add('flex');
@@ -947,7 +975,7 @@ function startInlineStyleEdit(recommendItemName) {
 }
 
 function animateInlineScore(from, to) {
-  dom.styleEditScorePanel.classList.remove('is-waiting');
+  dom.styleEditScorePanel.classList.remove('hidden');
   const delta = to - from;
   dom.styleEditScoreDelta.textContent = delta >= 0 ? `+${delta.toLocaleString()} UP!` : `${delta.toLocaleString()}`;
   dom.styleEditStatus.textContent = delta > 0
@@ -997,7 +1025,7 @@ async function applyStyleAdvice() {
       );
     }
 
-    const resultImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+    const resultImage = dom.resultOotdImg;
     resultImage.src = payload.image;
     await resultImage.decode();
     state.originalOotdImage ||= state.currentOotdImage;
@@ -1076,6 +1104,45 @@ function applyImprovedAnalysis(analysis, previousStats) {
   dom.resultScoreNum.textContent = state.score.toLocaleString();
   dom.resultTierName.textContent = state.tier;
   dom.resultRoastText.textContent = analysis.roast;
+  
+  if (state.isBattleMode) {
+    dom.vsMyScore.textContent = `${state.score.toLocaleString()}점`;
+    dom.vsMyTier.textContent = calculateTier(state.score);
+
+    const winStampHTML = `
+      <div class="bg-secondary border-[3px] border-black text-black px-4 py-2 font-headline font-black text-base rotate-[12deg] shadow-[3px_3px_0px_rgba(0,0,0,1)] uppercase tracking-wider select-none scale-110">
+        WIN 🏆
+      </div>
+    `;
+    const loseStampHTML = `
+      <div class="bg-[#ffdad6] border-[3px] border-black text-black px-4 py-2 font-headline font-black text-base rotate-[-12deg] shadow-[3px_3px_0px_rgba(0,0,0,1)] uppercase tracking-wider select-none scale-110">
+        LOSE 💀
+      </div>
+    `;
+
+    if (state.score > state.opponentScore) {
+      dom.battleResultStamp.innerHTML = winStampHTML;
+      dom.battleResultBadge.textContent = "VICTORY 🎉";
+      dom.battleResultBadge.className = "text-[9px] font-black mt-1.5 text-secondary uppercase tracking-tight";
+      if (dom.vsMyIcon) dom.vsMyIcon.textContent = "🏆";
+      
+      if (dom.resultHeaderBadge) {
+        dom.resultHeaderBadge.textContent = "VICTORY 🎉";
+        dom.resultHeaderBadge.className = "bg-secondary border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-black rotate-[2deg] text-black";
+      }
+    } else {
+      dom.battleResultStamp.innerHTML = loseStampHTML;
+      dom.battleResultBadge.textContent = "DEFEAT 💀";
+      dom.battleResultBadge.className = "text-[9px] font-black mt-1.5 text-error uppercase tracking-tight";
+      if (dom.vsMyIcon) dom.vsMyIcon.textContent = "💀";
+      
+      if (dom.resultHeaderBadge) {
+        dom.resultHeaderBadge.textContent = "DEFEAT 🚨";
+        dom.resultHeaderBadge.className = "bg-error-container border-[2px] border-black px-3 py-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-xs font-black rotate-[-2deg] text-black";
+      }
+    }
+  }
+
   renderVibeStats();
 }
 
@@ -1615,7 +1682,7 @@ async function exportInstagramStory() {
   ctx.fillText(state.isBattleMode ? 'FITCHECK! BATTLE' : 'FITCHECK! VERDICT', 540, 150);
 
   // 4. OOTD 사진 그리기 (일반 모드는 1:1, 배틀 모드는 5:5 분할 드로잉)
-  const imgElement = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+  const imgElement = dom.resultOotdImg;
   const imgWidth = 650;
   const imgHeight = 650;
   const imgX = (1080 - imgWidth) / 2; // 215
@@ -1862,7 +1929,7 @@ async function exportInstagramStory() {
   ctx.fillText(state.isBattleMode ? '대결을 수락하고 덤벼라! @team.letsgo_fit' : '내 친구들은 몇점? @team.letsgo_fit', 540, 1850);
 
   // 9. 최종 공유 카드는 사진, 점수, 상황, 티어와 팀 소개만 간결하게 담는다.
-  let shareImage = state.isBattleMode ? dom.resultOotdImgChallenger : dom.resultOotdImg;
+  let shareImage = dom.resultOotdImg;
   if (!state.isBattleMode && state.improvedOotdImage) {
     shareImage = new Image();
     shareImage.src = state.improvedOotdImage;
@@ -2066,7 +2133,15 @@ function playSound(type) {
 // 배틀 대결 링크 복사 기능 (클립보드 API)
 function copyBattleLink() {
   playSound('select');
-  const battleUrl = `${window.location.origin}${window.location.pathname}?score=${state.score}&tpo=${encodeURIComponent(state.selectedTpo)}`;
+  
+  // 로컬 호스트나 로컬 IP 대역에서 테스트할 때는 현재 오리진을 사용하고,
+  // 그 외 환경(토스 앱 웹뷰 및 상용 웹)에서는 배포용 도메인을 고정 사용
+  const isLocal = window.location.origin.includes('localhost') || 
+                  window.location.origin.includes('127.0.0.1') || 
+                  window.location.origin.includes('192.168.');
+  
+  const baseUrl = isLocal ? window.location.origin : 'https://fitcheckapp.pages.dev';
+  const battleUrl = `${baseUrl}/?score=${state.score}&tpo=${encodeURIComponent(state.selectedTpo)}`;
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(battleUrl)

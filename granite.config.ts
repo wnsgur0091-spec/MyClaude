@@ -17,7 +17,7 @@ export default defineConfig({
     theme: 'light',
   },
   web: {
-    host: 'localhost',
+    host: '192.168.219.223',
     port: 8788,
     commands: {
       // vite(5173)는 정적 자산만 서빙하고, wrangler pages dev(8788)가
