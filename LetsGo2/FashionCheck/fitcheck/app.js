@@ -1350,34 +1350,23 @@ function restoreRecentCheck(record) {
   state.currentRecordId = record.id;
   state.recordCreatedAt = record.createdAt;
 
-  if (!record.improvedImage) {
-    // 개선(before/after)을 적용하지 않은 기록은 캐시로 때우지 않고,
-    // 저장된 사진으로 실제 재측정을 수행해 Cloudflare Worker를 다시 다녀온다.
-    state.currentOotdImage = record.originalImage;
-    state.originalOotdImage = record.originalImage;
-    state.improvedOotdImage = null;
-    state.apiData = null;
-    dom.uploadPreviewImg.src = record.originalImage;
-    dom.uploadPlaceholder.classList.add('hidden');
-    dom.uploadPreviewContainer.classList.remove('hidden');
-    dom.btnSubmitScan.disabled = false;
-    selectTpo(record.tpo);
-    startScanningSequence();
-    return;
-  }
-
-  // 개선까지 마친 기록은 저장된 스냅샷(분석 결과 + 사진)을 그대로 복원
+  // 개선(before/after) 여부와 무관하게, 저장된 분석 결과(apiData)가 이미 있으므로
+  // AI를 다시 호출하지 않고 저장된 스냅샷(분석 결과 + 사진)을 그대로 복원한다.
   state.selectedTpo = record.tpo;
   state.apiData = record.apiData;
   state.originalOotdImage = record.originalImage;
-  state.improvedOotdImage = record.improvedImage;
-  state.currentOotdImage = record.improvedImage;
+  state.improvedOotdImage = record.improvedImage || null;
+  state.currentOotdImage = record.improvedImage || record.originalImage;
 
   calculateFashionResults();
 
-  state.isPatched = true;
-  if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
-  if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
+  if (record.improvedImage) {
+    state.isPatched = true;
+    if (dom.imageVersionToggle) dom.imageVersionToggle.classList.remove('hidden');
+    if (dom.resultTopOverlayTag) dom.resultTopOverlayTag.textContent = '개선';
+  } else if (dom.imageVersionToggle) {
+    dom.imageVersionToggle.classList.add('hidden');
+  }
 
   if (dom.appHeader) dom.appHeader.classList.remove('hidden');
   dom.screenUpload.classList.remove('active-screen');
@@ -2327,7 +2316,18 @@ async function shareSystem() {
   }
 
   // 2. 모바일 브라우저의 Web Share API 이미지 파일 공유 지원 시 (Safari, Chrome 등)
-  if (state.shareImageFile && navigator.share && navigator.canShare && navigator.canShare({ files: [state.shareImageFile] })) {
+  // 참고: 삼성 인터넷 등 일부 브라우저는 canShare({files})가 true를 반환해놓고도
+  // 실제 share() 호출 시 에러를 던지는 경우가 있어, canShare 체크 자체와 실패 시
+  // 모두 아래 3번 클립보드 폴백으로 이어지도록 처리한다 (예전엔 여기서 그냥 끝나버려서
+  // "안내만 뜨고 실패"하는 문제가 있었음).
+  let canShareWithFile = false;
+  try {
+    canShareWithFile = !!(state.shareImageFile && navigator.share && navigator.canShare && navigator.canShare({ files: [state.shareImageFile] }));
+  } catch (canShareErr) {
+    console.warn("navigator.canShare check failed, falling back...", canShareErr);
+  }
+
+  if (canShareWithFile) {
     try {
       await navigator.share({
         files: [state.shareImageFile],
@@ -2337,15 +2337,13 @@ async function shareSystem() {
       showToast("공유가 완료되었습니다! ✨");
       return;
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error("System share failed", err);
-        showToast("공유 중 오류가 발생했습니다.");
-      }
-      return;
+      if (err.name === 'AbortError') return; // 사용자가 직접 취소한 경우는 조용히 종료
+      console.warn("System share failed, falling back to clipboard copy...", err);
+      // return하지 않고 아래 3번 폴백으로 계속 진행
     }
   }
 
-  // 3. 둘 다 지원 안 될 때 (PC 웹 등)
+  // 3. 파일 공유가 안 되거나 실패했을 때 (PC 웹, 삼성 인터넷 등)
   try {
     await navigator.clipboard.writeText(`[FitCheck] 오늘의 패션력 점수는 ${state.score}점! 핏체크에서 OOTD 패션력을 대결해보세요! 🥊\n${window.location.origin}`);
     showToast("결과 문구가 복사되었습니다! 공유하고 싶은 곳에 붙여넣어 보세요 📋");
