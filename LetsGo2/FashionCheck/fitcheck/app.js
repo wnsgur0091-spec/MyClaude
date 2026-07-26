@@ -5,7 +5,7 @@ import { share, saveBase64Data } from '@apps-in-toss/web-framework';
 // 상대경로를 쓰고, 그 외(실제 토스 앱 등)에는 실제 배포된 Cloudflare Pages 도메인으로 명시적으로 요청한다.
 const API_BASE_URL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
   ? ''
-  : 'https://fitbattle.pages.dev';
+  : 'https://fitcheckapp.pages.dev';
 
 // 모바일 브라우저(크롬 등)의 시스템 글자 크기 배율(Accessibility Zoom)에 의해 레이아웃이 깨지는 현상 보정
 (function adjustFontScale() {
