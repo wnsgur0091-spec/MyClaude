@@ -1,5 +1,12 @@
 import { share, saveBase64Data } from '@apps-in-toss/web-framework';
 
+// 토스 미니앱(.ait) 번들은 정적 파일(web/)을 로컬 개발 서버와 다른 origin에서 서빙하기 때문에,
+// 상대경로(/api/*) fetch가 엉뚱한 origin으로 나가 실패한다. 로컬 개발(localhost)일 때만
+// 상대경로를 쓰고, 그 외(실제 토스 앱 등)에는 실제 배포된 Cloudflare Pages 도메인으로 명시적으로 요청한다.
+const API_BASE_URL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+  ? ''
+  : 'https://fitbattle.pages.dev';
+
 // 모바일 브라우저(크롬 등)의 시스템 글자 크기 배율(Accessibility Zoom)에 의해 레이아웃이 깨지는 현상 보정
 (function adjustFontScale() {
   try {
@@ -435,7 +442,7 @@ async function resizeImageForUpload(dataUrl) {
 async function callAnalyzeAPI(imageBase64, tpo, improvementContext = null) {
   let response;
   try {
-    response = await fetch('/api/analyze', {
+    response = await fetch(`${API_BASE_URL}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageBase64, tpo, improvementContext }),
@@ -1006,7 +1013,7 @@ async function applyStyleAdvice() {
 
   try {
     const preparedImage = await prepareImageForStyleEdit(state.currentOotdImage);
-    const response = await fetch('/api/apply-style', {
+    const response = await fetch(`${API_BASE_URL}/api/apply-style`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2222,7 +2229,7 @@ function openMusinsaSearch(url) {
 // wrangler 콘솔에 남긴다 (개발/QA 디버깅 전용).
 function remoteLog(tag, data) {
   try {
-    fetch('/api/debug-log', {
+    fetch(`${API_BASE_URL}/api/debug-log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tag, ts: new Date().toISOString(), ...data }),

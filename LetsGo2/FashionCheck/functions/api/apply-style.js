@@ -1,9 +1,13 @@
 import { AI_FEATURES, resolveAiModel } from '../_lib/ai/models.js';
 import { runAiModel } from '../_lib/ai/run.js';
-import { base64ToBlob, json, parseDataUrl } from '../_lib/http.js';
+import { base64ToBlob, json, parseDataUrl, corsPreflight } from '../_lib/http.js';
 import { toPublicAiError } from '../_lib/ai/errors.js';
 
 const MAX_TEXT_LENGTH = 500;
+
+export function onRequestOptions() {
+  return corsPreflight();
+}
 
 export async function onRequestPost({ request, env }) {
   try {

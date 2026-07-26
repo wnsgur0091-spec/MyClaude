@@ -2,11 +2,15 @@ import { AI_FEATURES, resolveAiModel } from '../_lib/ai/models.js';
 import { runAiModel } from '../_lib/ai/run.js';
 import { OUTFIT_RESULT_SCHEMA, parseOutfitResult } from '../_lib/ai/outfit-result.js';
 import { AI_ERROR_CODES, toPublicAiError } from '../_lib/ai/errors.js';
-import { json as jsonResponse, parseDataUrl } from '../_lib/http.js';
+import { json as jsonResponse, parseDataUrl, corsPreflight } from '../_lib/http.js';
 
 const ALLOWED_TPOS = new Set(['일상', '데이트', '출근', '운동', '하객']);
 // 좌표/스키마 인식에 실패했을 때만 상위 모델로 한 번 재시도한다 (공간 추론 성능이 더 좋음).
 const COORDINATE_FALLBACK_MODEL = { id: 'gemini-3.5-flash', provider: 'gemini' };
+
+export function onRequestOptions() {
+  return corsPreflight();
+}
 
 export async function onRequestPost(context) {
   try {
