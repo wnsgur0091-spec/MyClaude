@@ -343,6 +343,35 @@ const EVENT_POOL = [
       { label: "거절한다", tone: "neutral", forecast: [{ text: "변동 없음", tone: "neutral" }], effects: [] },
     ],
   },
+  {
+    id: "ceremonial_pitch",
+    category: "이미지",
+    badge: "공식 행사",
+    badgeTone: "blue",
+    title: "프로야구 시구 초청",
+    desc: "한 프로야구 구단으로부터 홈경기 시구 초청이 들어왔습니다.",
+    condition: (s) => s.phase !== "trainee",
+    choices: [
+      {
+        label: "시구를 한다",
+        tone: "accent",
+        forecast: [
+          { text: "70% 확률 성공 (브랜드평판·팬덤 ↑)", tone: "up" },
+          { text: "30% 확률 실수 (브랜드평판 ↓)", tone: "warn" },
+        ],
+        resolve: () => {
+          if (Math.random() < 0.7) {
+            return [
+              { type: "stat", key: "브랜드평판", tier: "S", dir: 1 },
+              { type: "fandom", tier: "S", dir: 1 },
+            ];
+          }
+          return [{ type: "stat", key: "브랜드평판", tier: "S", dir: -1 }];
+        },
+      },
+      { label: "정중히 거절한다", tone: "neutral", forecast: [{ text: "변동 없음", tone: "neutral" }], effects: [] },
+    ],
+  },
 ];
 
 function avgSkill(s) {

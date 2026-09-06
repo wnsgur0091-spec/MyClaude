@@ -4,7 +4,12 @@
 const SAVE_KEY = "idolgame_state_v1";
 
 const AGENCIES = ["스타라이트 엔터테인먼트", "문라이즈 뮤직", "블룸 엔터테인먼트", "오로라사운드", "넥스트비트 엔터"];
+const GROUP_NAMES = ["스텔라이트", "루나파이브", "블레이즈", "코스모틱", "위시드림", "네온펄스", "오로라식스", "드림비트"];
 const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+const EVENT_INTERVAL_DAYS = 7; // 비정기 이벤트 평균 주기
+const BROADCAST_INTERVAL_DAYS = 20; // 방송 출연 스케줄 평균 주기 (데뷔 후)
+const ALBUM_INTERVAL_DAYS = 60; // 앨범 발매(컴백) 평균 주기 (데뷔 후)
 
 const STAT_TIER = { S: 2, M: 4, L: 8 };
 const FANDOM_TIER_PCT = { S: 0.04, M: 0.12, L: 0.3 };
@@ -24,7 +29,7 @@ const STAT_DESC = {
 };
 
 const STAGE_LABEL = { trainee: "연습생", debut: "데뷔", peak: "전성기" };
-const STAGE_COLOR = { trainee: "#5b6ee1", debut: "#7c5cf0", peak: "#b4223c" };
+const STAGE_COLOR = { trainee: "#ff6fa0", debut: "#7c5cf0", peak: "#d1355a" };
 
 const EVAL_PASS_LINE = 40; // 이 평균 미만이면 하위권(경고 누적)
 const EVAL_GOOD_LINE = 70; // 이 평균 이상이면 브랜드평판 상승
@@ -49,6 +54,12 @@ function hasBatchim(word) {
   return (ch - 0xac00) % 28 !== 0;
 }
 function josa(word, withBatchim, withoutBatchim) { return word + (hasBatchim(word) ? withBatchim : withoutBatchim); }
+function ro(word) {
+  const ch = word.charCodeAt(word.length - 1);
+  if (ch < 0xac00 || ch > 0xd7a3) return word + "로";
+  const final = (ch - 0xac00) % 28;
+  return final === 0 || final === 8 ? word + "로" : word + "으로";
+}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -105,6 +116,10 @@ function applyEffect(s, eff) {
       s.phase = "debuted";
       s.debutDate = s.today;
       s.fandom = randInt(500, 1500);
+      s.groupName = GROUP_NAMES[randInt(0, GROUP_NAMES.length - 1)];
+      s.groupSize = randInt(4, 7);
+      s.lastBroadcastDay = s.dayIndex;
+      s.lastAlbumDay = s.dayIndex;
       break;
     case "realestate":
       s.realEstateCount += eff.add;
@@ -181,7 +196,11 @@ function advanceDay() {
 
   state.today = addDaysISO(state.today, 1);
   state.dayIndex += 1;
-  if (state.phase === "trainee") state.assets -= randInt(20000, 60000);
+  if (state.phase === "trainee") {
+    state.assets -= randInt(20000, 60000); // 연습생 생활비/훈련비
+  } else {
+    state.assets += Math.round(state.fandom * randInt(1, 3)); // 데뷔 후 소소한 스트리밍/굿즈 고정 수입
+  }
   pushHistory(state);
 
   const d = toDateObj(state.today);
@@ -217,8 +236,21 @@ function advanceDay() {
     return;
   }
 
-  if (state.dayIndex - state.lastEventDay >= 14) {
-    const chance = Math.min(0.9, 0.5 + 0.05 * (state.dayIndex - state.lastEventDay - 14));
+  if (state.phase !== "trainee") {
+    const albumGap = state.dayIndex - state.lastAlbumDay;
+    if (albumGap >= ALBUM_INTERVAL_DAYS) {
+      const chance = Math.min(0.9, 0.4 + 0.04 * (albumGap - ALBUM_INTERVAL_DAYS));
+      if (Math.random() < chance) { state.lastAlbumDay = state.dayIndex; saveState(); openAlbumEvent(); return; }
+    }
+    const bcGap = state.dayIndex - state.lastBroadcastDay;
+    if (bcGap >= BROADCAST_INTERVAL_DAYS) {
+      const chance = Math.min(0.9, 0.4 + 0.04 * (bcGap - BROADCAST_INTERVAL_DAYS));
+      if (Math.random() < chance) { state.lastBroadcastDay = state.dayIndex; saveState(); openBroadcastEvent(); return; }
+    }
+  }
+
+  if (state.dayIndex - state.lastEventDay >= EVENT_INTERVAL_DAYS) {
+    const chance = Math.min(0.9, 0.5 + 0.07 * (state.dayIndex - state.lastEventDay - EVENT_INTERVAL_DAYS));
     if (Math.random() < chance) {
       const ev = pickEvent(state);
       if (ev) { state.lastEventDay = state.dayIndex; saveState(); openEventModal(ev); return; }
@@ -252,7 +284,7 @@ function renderModal(spec, onResolve) {
     .map((c, i) => {
       const inner = c.exactLines
         ? `<div class="chip-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-             ${c.exactLines.map((t) => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:${c.tone === "accent" ? "#2f8a5b" : "#8a8a86"};">${escapeHtml(t)}</div>`).join("")}
+             ${c.exactLines.map((t) => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:${c.tone === "accent" ? "#2fbf85" : "#9b8290"};">${escapeHtml(t)}</div>`).join("")}
            </div>`
         : `<div class="chip-row">
              ${(c.forecast || []).map((f) => `<span class="fchip ${f.tone}">${escapeHtml(f.text)}</span>`).join("")}
@@ -284,20 +316,53 @@ function renderModal(spec, onResolve) {
   });
 }
 
+// 하루 동안 있었던 일의 실제 결과를 사람이 읽을 수 있는 줄 목록으로 계산
+function computeDelta(before, after) {
+  const lines = [];
+  ["외모력", "가창력", "춤실력", "브랜드평판", "팀워크", "컨디션"].forEach((k) => {
+    const d = after.stats[k] - before.stats[k];
+    if (d !== 0) lines.push(`${k} ${d > 0 ? "+" : ""}${d}`);
+  });
+  const fd = after.fandom - before.fandom;
+  if (fd !== 0) lines.push(`팬덤 ${fd > 0 ? "+" : ""}${fmt(fd)}명`);
+  const ad = after.assets - before.assets;
+  if (ad !== 0) lines.push(`자산 ${ad > 0 ? "+" : ""}${fmt(ad)}원`);
+  if (after.contractMonthsLeft !== before.contractMonthsLeft) lines.push(`잔여계약기간 ${after.contractMonthsLeft}개월로 변경`);
+  if (after.phase !== before.phase) lines.push(`데뷔! (${after.groupName} · ${after.groupSize}인조)`);
+  if (after.realEstateCount !== before.realEstateCount) lines.push(`부동산 개수 ${after.realEstateCount}개`);
+  if (lines.length === 0) lines.push("변동 없음");
+  return lines;
+}
+
+// 모달 선택 결과를 적용하고, 그날의 기록을 캘린더 히스토리에 남긴다
+function finishChoice(spec, choice, opts) {
+  opts = opts || {};
+  const before = JSON.parse(JSON.stringify(state));
+  const effects = choice.resolve ? choice.resolve(state) : choice.effects || [];
+  applyEffects(state, effects);
+  if (opts.id) state.lastEventId = opts.id;
+  const resultLines = computeDelta(before, state);
+  state.eventLog.push({
+    date: state.today,
+    title: spec.title,
+    badge: spec.badge,
+    badgeTone: spec.badgeTone,
+    desc: spec.desc,
+    choiceLabel: choice.label,
+    resultLines,
+  });
+  closeModal();
+  saveState();
+  renderAll();
+  if (effects.some((e) => e.type === "debut")) {
+    showToast(`${ro(state.groupName)} 데뷔합니다! (${state.groupSize}인조)`, 5000);
+  }
+  checkGameOver();
+}
+
 function openEventModal(ev) {
-  renderModal(
-    { title: ev.title, desc: ev.desc, badge: ev.badge, badgeTone: ev.badgeTone, choices: ev.choices },
-    (choice) => {
-      const effects = choice.resolve ? choice.resolve(state) : choice.effects || [];
-      applyEffects(state, effects);
-      state.eventLog.push({ date: state.today, title: ev.title });
-      state.lastEventId = ev.id;
-      closeModal();
-      saveState();
-      renderAll();
-      checkGameOver();
-    }
-  );
+  const spec = { title: ev.title, desc: ev.desc, badge: ev.badge, badgeTone: ev.badgeTone, choices: ev.choices };
+  renderModal(spec, (choice) => finishChoice(spec, choice, { id: ev.id }));
 }
 
 function openContractRenewal() {
@@ -322,13 +387,7 @@ function openContractRenewal() {
       },
     ],
   };
-  renderModal(spec, (choice) => {
-    applyEffects(state, choice.effects);
-    closeModal();
-    saveState();
-    renderAll();
-    checkGameOver();
-  });
+  renderModal(spec, (choice) => finishChoice(spec, choice));
 }
 
 function openSicknessEvent() {
@@ -351,14 +410,103 @@ function openSicknessEvent() {
       },
     ],
   };
-  renderModal(spec, (choice) => {
-    applyEffects(state, choice.effects);
-    state.eventLog.push({ date: state.today, title: "감기 몸살" });
-    closeModal();
-    saveState();
-    renderAll();
-    checkGameOver();
-  });
+  renderModal(spec, (choice) => finishChoice(spec, choice));
+}
+
+function openBroadcastEvent() {
+  const spec = {
+    title: "음악방송 출연 스케줄",
+    badge: "방송 활동",
+    badgeTone: "blue",
+    desc: "이번 주 음악방송 출연이 잡혔습니다. 무대 컨셉을 어떻게 준비할까요?",
+    choices: [
+      {
+        label: "화려한 퍼포먼스로 승부한다",
+        tone: "accent",
+        forecast: [
+          { text: "팬덤 ↑↑", tone: "up" },
+          { text: "출연료 자산 ↑", tone: "up" },
+          { text: "컨디션 ↓", tone: "warn" },
+        ],
+        effects: [
+          { type: "fandom", tier: "M", dir: 1 },
+          { type: "asset", tier: "S", dir: 1 },
+          { type: "stat", key: "컨디션", tier: "S", dir: -1 },
+        ],
+      },
+      {
+        label: "무난하게 진행한다",
+        tone: "neutral",
+        forecast: [
+          { text: "팬덤 ↑", tone: "up" },
+          { text: "출연료 자산 소폭 ↑", tone: "up" },
+        ],
+        effects: [
+          { type: "fandom", tier: "S", dir: 1 },
+          { type: "asset", tier: "S", dir: 1 },
+        ],
+      },
+    ],
+  };
+  renderModal(spec, (choice) => finishChoice(spec, choice));
+}
+
+function openAlbumEvent() {
+  const spec = {
+    title: "신곡 앨범 발매",
+    badge: "컴백 활동",
+    badgeTone: "indigo",
+    desc: "새 앨범과 타이틀곡을 발매하고 컴백 활동을 시작합니다. 프로모션 강도를 정해주세요.",
+    choices: [
+      {
+        label: "총력 프로모션 (예능·인터뷰 총동원)",
+        tone: "accent",
+        forecast: [
+          { text: "팬덤 ↑↑↑", tone: "up" },
+          { text: "음원·굿즈 수익 ↑↑", tone: "up" },
+          { text: "컨디션 ↓↓", tone: "warn" },
+        ],
+        effects: [
+          { type: "fandom", tier: "L", dir: 1 },
+          { type: "asset", tier: "L", dir: 1 },
+          { type: "stat", key: "컨디션", tier: "M", dir: -1 },
+        ],
+      },
+      {
+        label: "무난한 홍보 활동",
+        tone: "neutral",
+        forecast: [
+          { text: "팬덤 ↑↑", tone: "up" },
+          { text: "음원 수익 ↑", tone: "up" },
+        ],
+        effects: [
+          { type: "fandom", tier: "M", dir: 1 },
+          { type: "asset", tier: "M", dir: 1 },
+        ],
+      },
+    ],
+  };
+  renderModal(spec, (choice) => finishChoice(spec, choice));
+}
+
+function openHistoryDetail(entry) {
+  modalCardEl().innerHTML = `
+    <div class="modal-head">
+      <div class="modal-date">${formatDateLabel(entry.date)}</div>
+      ${entry.badge ? `<span class="modal-badge ${BADGE_CLASS[entry.badgeTone] || "badge-indigo"}">${escapeHtml(entry.badge)}</span>` : ""}
+    </div>
+    <div class="modal-title">${escapeHtml(entry.title)}</div>
+    ${entry.desc ? `<div class="modal-desc">${escapeHtml(entry.desc)}</div>` : ""}
+    <div class="modal-forecast-label">내 선택</div>
+    <div style="font-size:14px;font-weight:700;color:#ff6fa0;">${escapeHtml(entry.choiceLabel || "-")}</div>
+    <div class="modal-forecast-label">실제 결과</div>
+    <div class="chip-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+      ${(entry.resultLines || []).map((t) => `<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#5c4a54;">${escapeHtml(t)}</div>`).join("")}
+    </div>
+    <button type="button" class="btn-ghost" id="btn-close-history" style="margin-top:6px;align-self:flex-start;">닫기</button>
+  `;
+  modalOverlayEl().hidden = false;
+  document.getElementById("btn-close-history").addEventListener("click", closeModal);
 }
 
 function openDailyActivityModal() {
@@ -393,13 +541,7 @@ function openDailyActivityModal() {
       },
     ],
   };
-  renderModal(spec, (choice) => {
-    applyEffects(state, choice.effects);
-    closeModal();
-    saveState();
-    renderAll();
-    checkGameOver();
-  });
+  renderModal(spec, (choice) => finishChoice(spec, choice));
 }
 
 // ---------- 토스트 ----------
@@ -447,6 +589,8 @@ function renderProfile() {
   const years = Math.floor(state.contractMonthsLeft / 12), months = state.contractMonthsLeft % 12;
   const contractStr = years > 0 ? `${years}년 ${months}개월` : `${months}개월`;
 
+  const groupValue = state.phase === "trainee" ? "-" : state.groupName ? `${state.groupName} (${state.groupSize}인조)` : "미정";
+
   const items = [
     ["성별", state.gender],
     ["나이", `${state.age}세`],
@@ -456,6 +600,7 @@ function renderProfile() {
     ["소속사", state.agency],
     ["잔여계약기간", contractStr],
     ["데뷔일시(+연차)", debutValue],
+    ["소속 그룹", groupValue],
   ];
   document.getElementById("profile-grid").innerHTML = items
     .map(([k, v]) => `<div class="profile-item"><div class="k">${k}</div><div class="v">${escapeHtml(v)}</div></div>`)
@@ -476,7 +621,7 @@ function renderStats() {
             <div class="tooltip-bubble">${STAT_DESC[key]}</div>
           </div>
           <div class="stat-track"><div class="stat-fill ${isWarn ? "warn" : ""}" style="width:${val}%;"></div></div>
-          <div class="stat-val" style="${isWarn ? "color:#c23b3b;" : ""}">${val}</div>
+          <div class="stat-val" style="${isWarn ? "color:#e14e6a;" : ""}">${val}</div>
           <div class="stat-warn-tag">${isWarn ? "⚠ 주의" : ""}</div>
         </div>`;
     })
@@ -535,7 +680,7 @@ function renderCalendar() {
   const firstWeekday = new Date(y, m - 1, 1).getDay();
   const lastDay = new Date(y, m, 0).getDate();
 
-  const pastEventDates = new Set(state.eventLog.map((e) => e.date));
+  const eventsByDate = new Map(state.eventLog.map((e) => [e.date, e]));
 
   let cells = "";
   for (let i = 0; i < firstWeekday; i++) cells += `<div class="cal-cell blank"></div>`;
@@ -543,14 +688,16 @@ function renderCalendar() {
     const iso = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const isToday = day === d.getDate();
     const isEvalDay = isTrainee && day === lastDay;
+    const logEntry = !isToday ? eventsByDate.get(iso) : null;
     let cls = "cal-cell";
     if (isToday) cls += " today clickable";
+    else if (logEntry) cls += " clickable has-log";
     if (isEvalDay) cls += " eval-day";
 
     let inner = `${day}`;
     if (isToday) inner += `<span class="badge-today">오늘</span>`;
     else if (isEvalDay) inner += `<span class="badge-eval">⚑ 월말평가</span>`;
-    else if (pastEventDates.has(iso)) inner += `<span class="badge-past"><span class="dot dot-gray"></span>발생함</span>`;
+    else if (logEntry) inner += `<span class="badge-past"><span class="dot dot-gray"></span>발생함</span>`;
 
     cells += `<div class="${cls}" data-date="${iso}">${inner}</div>`;
   }
@@ -560,7 +707,13 @@ function renderCalendar() {
     <div class="cal-head-cell">수</div><div class="cal-head-cell">목</div><div class="cal-head-cell">금</div>
     <div class="cal-head-cell sat">토</div>${cells}`;
 
-  document.querySelectorAll(".cal-cell.clickable").forEach((el) => el.addEventListener("click", advanceDay));
+  document.querySelectorAll(".cal-cell.today.clickable").forEach((el) => el.addEventListener("click", advanceDay));
+  document.querySelectorAll(".cal-cell.has-log").forEach((el) => {
+    el.addEventListener("click", () => {
+      const entry = eventsByDate.get(el.dataset.date);
+      if (entry) openHistoryDetail(entry);
+    });
+  });
 
   document.getElementById("contract-note").textContent = `다음 계약 갱신까지 ${state.contractMonthsLeft}개월`;
 }
@@ -640,11 +793,20 @@ function wireCreateScreen() {
     });
   });
 
+  const ageInput = document.getElementById("input-age");
+  const ageError = document.getElementById("age-error");
+  ageInput.addEventListener("input", () => { ageError.hidden = true; });
+
   document.getElementById("btn-start").addEventListener("click", () => {
-    const age = clamp(Number(document.getElementById("input-age").value) || 15, 10, 15);
+    const ageVal = Number(ageInput.value);
+    if (!Number.isInteger(ageVal) || ageVal < 10 || ageVal > 15) {
+      ageError.hidden = false;
+      ageInput.focus();
+      return;
+    }
     const name = document.getElementById("input-name").value.trim() || "이름없음";
     const stageName = document.getElementById("input-stagename").value.trim();
-    initGame({ gender, age, name, stageName });
+    initGame({ gender, age: ageVal, name, stageName });
   });
 }
 
