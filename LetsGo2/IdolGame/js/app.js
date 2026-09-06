@@ -20,11 +20,21 @@ const STAT_DESC = {
   춤실력: "퍼포먼스 실력 점수. 연습과 특별 훈련으로 상승합니다.",
   브랜드평판: "대중 이미지 점수. 기부 등 선행 시 상승, 열애설·사건사고 등 가십 발생 시 하락 (0~100)",
   팀워크: "그룹 활동에서의 협업 점수.",
-  컨디션: "체력/컨디션 점수. 20 미만이면 위험 신호가 표시됩니다.",
+  컨디션: "체력/컨디션 점수. 20 미만이면 위험 신호가 표시되고 병가(감기·몸살) 확률이 올라가며, 0이 되면 반드시 앓아눕습니다.",
 };
 
 const STAGE_LABEL = { trainee: "연습생", debut: "데뷔", peak: "전성기" };
 const STAGE_COLOR = { trainee: "#5b6ee1", debut: "#7c5cf0", peak: "#b4223c" };
+
+const EVAL_PASS_LINE = 40; // 이 평균 미만이면 하위권(경고 누적)
+const EVAL_GOOD_LINE = 70; // 이 평균 이상이면 브랜드평판 상승
+
+// 컨디션이 낮을수록 병가(감기·몸살) 확률이 올라가고, 0이면 100% 발생
+function sicknessChance(cond) {
+  if (cond <= 0) return 1;
+  if (cond >= 20) return 0;
+  return ((20 - cond) / 20) * 0.7;
+}
 
 let state = null;
 let toastTimer = null;
@@ -149,11 +159,11 @@ function checkGameOver() {
 function runMonthlyEvaluation() {
   const avg = avgSkill(state);
   let msg;
-  if (avg >= 70) {
+  if (avg >= EVAL_GOOD_LINE) {
     state.stats.브랜드평판 = clamp(state.stats.브랜드평판 + STAT_TIER.S, 0, 100);
     msg = "이번 달 평가 결과: 상위권! 브랜드평판이 소폭 상승했습니다.";
     state.lowEvalStreak = 0;
-  } else if (avg >= 40) {
+  } else if (avg >= EVAL_PASS_LINE) {
     msg = "이번 달 평가 결과: 무난합니다.";
     state.lowEvalStreak = 0;
   } else {
@@ -183,6 +193,12 @@ function advanceDay() {
   if (checkGameOver()) return;
 
   if (day === 1) {
+    if (state.phase === "trainee") {
+      showToast(
+        `이번 달 월말평가 기준 안내: 3대 스탯 평균 ${EVAL_PASS_LINE}점 이상이면 무난, ${EVAL_GOOD_LINE}점 이상이면 브랜드평판 상승. ${EVAL_PASS_LINE}점 미만이면 경고가 누적됩니다.`,
+        4800
+      );
+    }
     state.contractMonthsLeft -= 1;
     if (state.contractMonthsLeft <= 0) { saveState(); openContractRenewal(); return; }
   }
@@ -193,6 +209,12 @@ function advanceDay() {
     saveState();
     renderAll();
     if (over) return;
+  }
+
+  if (Math.random() < sicknessChance(state.stats.컨디션)) {
+    saveState();
+    openSicknessEvent();
+    return;
   }
 
   if (state.dayIndex - state.lastEventDay >= 14) {
@@ -220,7 +242,7 @@ function formatDateLabel(iso) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY_KO[d.getDay()]})`;
 }
 
-const BADGE_CLASS = { amber: "badge-amber", pink: "badge-pink", blue: "badge-blue", indigo: "badge-indigo" };
+const BADGE_CLASS = { amber: "badge-amber", pink: "badge-pink", blue: "badge-blue", indigo: "badge-indigo", red: "badge-red" };
 
 function renderModal(spec, onResolve) {
   const usesExact = spec.choices.some((c) => c.exactLines);
@@ -302,6 +324,36 @@ function openContractRenewal() {
   };
   renderModal(spec, (choice) => {
     applyEffects(state, choice.effects);
+    closeModal();
+    saveState();
+    renderAll();
+    checkGameOver();
+  });
+}
+
+function openSicknessEvent() {
+  const spec = {
+    title: "감기 몸살로 앓아누움",
+    badge: "건강 이벤트",
+    badgeTone: "red",
+    desc: "컨디션이 바닥나 몸살이 났습니다. 오늘은 아무것도 하지 못하고 하루 종일 앓아누웠습니다.",
+    choices: [
+      {
+        label: "오늘은 푹 쉰다",
+        tone: "neutral",
+        exactLines: ["외모력·가창력·춤실력 각 -1 (훈련 공백)", "컨디션 +6 (강제 휴식)"],
+        effects: [
+          { type: "statRaw", key: "외모력", amt: -1 },
+          { type: "statRaw", key: "가창력", amt: -1 },
+          { type: "statRaw", key: "춤실력", amt: -1 },
+          { type: "statRaw", key: "컨디션", amt: 6 },
+        ],
+      },
+    ],
+  };
+  renderModal(spec, (choice) => {
+    applyEffects(state, choice.effects);
+    state.eventLog.push({ date: state.today, title: "감기 몸살" });
     closeModal();
     saveState();
     renderAll();

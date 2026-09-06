@@ -188,6 +188,7 @@ body {
 .badge-pink { color: var(--pink); background: var(--pink-bg); }
 .badge-blue { color: var(--indigo-text); background: var(--blue-bg); }
 .badge-indigo { color: #fff; background: var(--accent); }
+.badge-red { color: var(--warn); background: #fbeaea; }
 .modal-title { font-size: 18px; font-weight: 700; }
 .modal-desc { font-size: 13px; line-height: 1.6; color: #4a4a46; }
 .modal-forecast-label { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #b3b3ad; }
