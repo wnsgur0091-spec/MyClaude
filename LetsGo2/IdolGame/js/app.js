@@ -194,6 +194,7 @@ function runMonthlyEvaluation() {
 function advanceDay() {
   if (state.gameOver) return;
 
+  resetCalendarView(); // 하루가 진행되면 달력은 항상 "오늘"이 있는 달로 돌아옴
   state.today = addDaysISO(state.today, 1);
   state.dayIndex += 1;
   if (state.phase === "trainee") {
@@ -669,14 +670,40 @@ function renderScaleStats() {
   document.getElementById("scale-stats").innerHTML = fandomHtml + assetsHtml;
 }
 
-function renderCalendar() {
+let calendarView = null; // { y, m } — null이면 항상 "오늘이 속한 달"을 따라감
+
+function getCalendarView() {
   const d = toDateObj(state.today);
-  const y = d.getFullYear(), m = d.getMonth() + 1;
+  if (!calendarView) calendarView = { y: d.getFullYear(), m: d.getMonth() + 1 };
+  return calendarView;
+}
+function resetCalendarView() { calendarView = null; }
+function shiftCalendarMonth(delta) {
+  const v = getCalendarView();
+  let newM = v.m + delta, newY = v.y;
+  if (newM < 1) { newM = 12; newY -= 1; }
+  if (newM > 12) { newM = 1; newY += 1; }
+  calendarView = { y: newY, m: newM };
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const realToday = toDateObj(state.today);
+  const { y, m } = getCalendarView();
   document.getElementById("calendar-title").textContent = `${y}년 ${m}월`;
 
   const isTrainee = state.phase === "trainee";
   document.getElementById("legend-eval").style.display = isTrainee ? "" : "none";
 
+  const noteEl = document.getElementById("eval-threshold-note");
+  if (isTrainee) {
+    noteEl.hidden = false;
+    noteEl.textContent = `이번 달 합격 기준: 평균 ${EVAL_PASS_LINE}점↑ 무난 · ${EVAL_GOOD_LINE}점↑ 브랜드평판↑`;
+  } else {
+    noteEl.hidden = true;
+  }
+
+  const isCurrentMonth = y === realToday.getFullYear() && m === realToday.getMonth() + 1;
   const firstWeekday = new Date(y, m - 1, 1).getDay();
   const lastDay = new Date(y, m, 0).getDate();
 
@@ -686,7 +713,7 @@ function renderCalendar() {
   for (let i = 0; i < firstWeekday; i++) cells += `<div class="cal-cell blank"></div>`;
   for (let day = 1; day <= lastDay; day++) {
     const iso = `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const isToday = day === d.getDate();
+    const isToday = isCurrentMonth && day === realToday.getDate();
     const isEvalDay = isTrainee && day === lastDay;
     const logEntry = !isToday ? eventsByDate.get(iso) : null;
     let cls = "cal-cell";
@@ -752,12 +779,14 @@ function showGameScreen() {
 function resetGame() {
   clearState();
   state = null;
+  resetCalendarView();
   closeModal();
   showCreateScreen();
 }
 
 // ---------- 캐릭터 생성 ----------
 function initGame({ gender, age, name, stageName }) {
+  resetCalendarView();
   const todayISO = toISO(new Date());
   const birthMonth = randInt(1, 12);
   const birthDay = randInt(1, 28);
@@ -799,7 +828,7 @@ function wireCreateScreen() {
 
   document.getElementById("btn-start").addEventListener("click", () => {
     const ageVal = Number(ageInput.value);
-    if (!Number.isInteger(ageVal) || ageVal < 10 || ageVal > 15) {
+    if (!Number.isInteger(ageVal) || ageVal < 15 || ageVal > 19) {
       ageError.hidden = false;
       ageInput.focus();
       return;
@@ -815,6 +844,8 @@ function wireGameScreen() {
   document.getElementById("btn-reset").addEventListener("click", () => {
     if (confirm("정말 새로 시작하시겠습니까? 진행 상황이 모두 초기화됩니다.")) resetGame();
   });
+  document.getElementById("btn-cal-prev").addEventListener("click", () => shiftCalendarMonth(-1));
+  document.getElementById("btn-cal-next").addEventListener("click", () => shiftCalendarMonth(1));
 }
 
 document.addEventListener("DOMContentLoaded", () => {

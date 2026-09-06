@@ -160,7 +160,15 @@ h1, .brand-font { font-family: "Jua", "Gowun Dodum", system-ui, sans-serif; }
 .big.muted-num { color: var(--muted-2); }
 
 .calendar-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.calendar-title-group { display: flex; align-items: center; gap: 10px; }
 .calendar-title { font-family: "Jua", sans-serif; font-size: 16px; color: var(--accent-dark); }
+.eval-note { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+.cal-nav-btn {
+  width: 28px; height: 28px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff;
+  color: var(--accent); font-size: 16px; line-height: 1; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; padding: 0;
+}
+.cal-nav-btn:hover { background: var(--accent-soft); }
 .legend { display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--muted); }
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }

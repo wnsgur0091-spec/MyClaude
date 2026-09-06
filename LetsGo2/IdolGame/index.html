@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -27,9 +27,9 @@
     </div>
 
     <div class="field-row">
-      <label>나이 (10~15세)</label>
-      <input type="number" id="input-age" min="10" max="15" value="15">
-      <div id="age-error" class="field-error" hidden>나이는 10~15세 사이로 입력해주세요.</div>
+      <label>나이 (15~19세)</label>
+      <input type="number" id="input-age" min="15" max="19" value="15">
+      <div id="age-error" class="field-error" hidden>나이는 15~19세 사이로 입력해주세요.</div>
     </div>
 
     <div class="field-row">
@@ -90,7 +90,14 @@
     <!-- 캘린더 -->
     <div class="card">
       <div class="calendar-head">
-        <div class="calendar-title" id="calendar-title"></div>
+        <div class="calendar-title-group">
+          <button type="button" id="btn-cal-prev" class="cal-nav-btn" aria-label="이전 달">‹</button>
+          <div>
+            <div class="calendar-title" id="calendar-title"></div>
+            <div id="eval-threshold-note" class="eval-note" hidden></div>
+          </div>
+          <button type="button" id="btn-cal-next" class="cal-nav-btn" aria-label="다음 달">›</button>
+        </div>
         <div class="legend">
           <span class="legend-item"><span class="dot dot-gray"></span>지난 이벤트</span>
           <span class="legend-item" id="legend-eval"><span class="flag-icon">⚑</span>월말평가</span>
@@ -115,8 +122,8 @@
 <!-- 토스트 -->
 <div id="toast" class="toast" hidden></div>
 
-<script src="js/illustrations.js?v=4"></script>
-<script src="js/events.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/illustrations.js?v=5"></script>
+<script src="js/events.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>
