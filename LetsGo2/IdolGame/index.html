@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>아이돌 키우기 — 데모</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 캐릭터 생성 화면 -->
+<div id="screen-create" class="screen">
+  <div class="create-card">
+    <div class="eyebrow">아이돌 키우기 · 데모</div>
+    <h1>캐릭터 생성</h1>
+    <p class="lead">연습생으로서의 새로운 시작. 기본 정보를 입력해주세요.</p>
+
+    <div class="field-row">
+      <label>성별</label>
+      <div class="seg" id="gender-seg">
+        <button type="button" class="seg-btn active" data-value="여">여</button>
+        <button type="button" class="seg-btn" data-value="남">남</button>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label>나이 (10~15세)</label>
+      <input type="number" id="input-age" min="10" max="15" value="15">
+    </div>
+
+    <div class="field-row">
+      <label>이름</label>
+      <input type="text" id="input-name" placeholder="예: 김하늘" maxlength="10">
+    </div>
+
+    <div class="field-row">
+      <label>활동명</label>
+      <input type="text" id="input-stagename" placeholder="예: 하늘 (HANEUL)" maxlength="20">
+    </div>
+
+    <div class="hint">외모력 · 가창력 · 춤실력은 무작위로 배정되며, 소속사는 자동으로 선택됩니다.</div>
+
+    <button id="btn-start" class="btn-primary btn-large">연습생으로 시작하기</button>
+  </div>
+</div>
+
+<!-- 메인 게임 화면 -->
+<div id="screen-game" class="screen" hidden>
+  <div class="app-shell">
+
+    <div class="topbar">
+      <div class="topbar-title">아이돌 키우기 <span class="topbar-sub">· 플레이 데모</span></div>
+      <button id="btn-reset" class="btn-ghost">새로 시작</button>
+    </div>
+
+    <!-- 프로필 + 초상화 -->
+    <div class="row gap">
+      <div class="portrait-card">
+        <div id="portrait-img" class="portrait-img"></div>
+        <div id="stage-chip" class="stage-chip"></div>
+      </div>
+
+      <div class="card flex1">
+        <div class="card-head">
+          <div class="card-title">프로필</div>
+          <div id="today-label" class="muted small"></div>
+        </div>
+        <div class="profile-grid" id="profile-grid"></div>
+      </div>
+    </div>
+
+    <!-- 스탯 -->
+    <div class="row gap">
+      <div class="card flex-62">
+        <div class="card-title">스탯 (0~100)</div>
+        <div class="stat-hint">ⓘ 아이콘에 마우스를 올리면 설명이 표시됩니다</div>
+        <div id="stat-bars" class="stat-bars"></div>
+      </div>
+
+      <div class="card flex-38">
+        <div class="card-title">규모 지표</div>
+        <div id="scale-stats" class="scale-stats"></div>
+      </div>
+    </div>
+
+    <!-- 캘린더 -->
+    <div class="card">
+      <div class="calendar-head">
+        <div class="calendar-title" id="calendar-title"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="dot dot-gray"></span>지난 이벤트</span>
+          <span class="legend-item" id="legend-eval"><span class="flag-icon">⚑</span>월말평가</span>
+        </div>
+      </div>
+      <div id="calendar-grid" class="calendar-grid"></div>
+      <div class="calendar-actions">
+        <button id="btn-advance" class="btn-primary">하루 진행하기 ▶</button>
+        <div id="contract-note" class="muted small"></div>
+      </div>
+      <div class="footnote">※ 비정기 이벤트는 사전 예고 없이 당일 팝업으로 노출됩니다. 월말평가는 연습생 신분에서만 발생합니다.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 모달 오버레이 -->
+<div id="modal-overlay" class="modal-overlay" hidden>
+  <div id="modal-card" class="modal-card"></div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast" class="toast" hidden></div>
+
+<script src="js/illustrations.js"></script>
+<script src="js/events.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
