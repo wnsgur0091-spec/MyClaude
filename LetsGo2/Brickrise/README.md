@@ -15,6 +15,7 @@
 | 경로 | 내용 |
 |---|---|
 | `CLAUDE.md` | 지금까지의 결정 사항, 제거한 기능, 주문 코드·무료 횟수 규칙, 저장소 설계, 1차 범위, 미결정 항목 |
-| `docs/` | 시연 페이지(`demo.html`), 흐름도(`flow_simple.html`, `flow_detail.html`), 회의·법률 요약 이미지 |
+| `docs/` | 시연 페이지(`demo.html`), 흐름도(`flow_simple.html`, `flow_detail.html`), 회의·법률 요약 이미지, 입체 생성 연결 지점(`ai-pipeline-interface.md`) |
 | `prototype/` | 브릭화 파이썬 프로토타입 (디폼블럭 큐브 배치 `cube.py`, 39색 팔레트 `pal39.py`) |
+| `web/` | 웹사이트 (Next.js): 고객 화면 · 관리자 화면 · 서버 API. 실행·배포 방법은 [`web/README.md`](./web/README.md) |
 | `assets/` | 샘플 사진, TRELLIS.2 결과 GLB, 디폼블럭 색상표·규격 이미지 |
