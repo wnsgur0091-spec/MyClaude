@@ -60,15 +60,17 @@ npm run build     # 운영 빌드
 2. **Root Directory**를 `LetsGo2/Brickrise/web`으로 지정 (Framework: Next.js 자동 인식)
 3. Storage 탭에서 연결
    - **Neon (Postgres)**: Marketplace에서 추가하면 `DATABASE_URL`이 자동으로 들어옵니다. 테이블은 첫 요청 때 자동 생성됩니다.
-   - **Blob**: 추가하면 `BLOB_READ_WRITE_TOKEN`이 들어오고, 고객 사진이 비공개로 저장됩니다.
-4. Environment Variables에 직접 추가
+   - **Blob**: 연결하면 `BLOB_STORE_ID`가 들어오고, 인증은 Vercel이 자동으로 처리합니다(OIDC, 토큰 변수 없음). 고객 사진이 비공개로 저장됩니다.
+4. Settings → Environment Variables에서 직접 추가 (Key·Value 입력, Production·Preview 체크 → Save)
    - `ADMIN_PASSWORD`: 관리자 로그인 비밀번호
    - `SESSION_SECRET`: 길고 무작위인 문자열 (예: `openssl rand -hex 32` 결과)
    - `NEXT_PUBLIC_NAVER_STORE_URL`: 네이버 스마트스토어 상품 페이지 주소 (선택)
    - `BLOCK_WEIGHT_G`: 블럭 1개 무게 g (선택, 작업지시서 무게 환산)
-5. Deploy. 이후 `main`에 머지되면 자동으로 운영 배포되고, PR마다 미리보기 배포가 만들어집니다.
+5. 환경변수를 추가·변경한 뒤에는 Deployments → 최신 배포의 ⋯ → Redeploy (환경변수는 새 배포부터 적용). 이후 `main`에 머지되면 자동으로 운영 배포되고, PR마다 미리보기 배포가 만들어집니다.
 
-> Settings → Git → Ignored Build Step에 `git diff --quiet HEAD^ HEAD -- .` 를 넣으면 Brickrise 폴더가 바뀌지 않은 커밋에서는 빌드를 건너뜁니다.
+`web/vercel.json`에 다음 설정이 들어 있어 대시보드에서 따로 할 필요가 없습니다.
+- `regions: ["icn1"]`: 서버 함수를 서울 리전에서 실행
+- `ignoreCommand`: `web/` 폴더가 바뀌지 않은 커밋(예: FashionCheck 수정)은 빌드를 건너뜀
 
 ## 아직 임시이거나 미정인 것
 
