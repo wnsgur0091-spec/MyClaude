@@ -6,6 +6,8 @@ export const config = {
   isProd,
   databaseUrl: process.env.DATABASE_URL || "",
   blobToken: process.env.BLOB_READ_WRITE_TOKEN || "",
+  /** Vercel에서 Blob 저장소를 연결하면 들어오는 값 (토큰 대신 Vercel OIDC로 인증) */
+  blobStoreId: process.env.BLOB_STORE_ID || "",
   blockWeightG: Number(process.env.BLOCK_WEIGHT_G) || null,
 
   /** 무료 시안 횟수: 둘 중 하나라도 넘으면 중지 */
