@@ -13,7 +13,10 @@ const STEP_ORDER: Step[] = ["options", "consent", "upload", "check", "result", "
 type DraftView = {
   id: string; type: ShapeType; size: SizeCm; model: BrickModel; blockCount: number; colorCount: number; isMock: boolean; price: Price;
 };
-type CodeView = { code: string; type: ShapeType; size: SizeCm; blockCount: number; blockQty: number; total: number; expiresAt: string };
+type CodeView = {
+  code: string; type: ShapeType; size: SizeCm; blockCount: number; blockQty: number;
+  productTotal: number; shippingFee: number; total: number; expiresAt: string;
+};
 type CheckState = "wait" | "run" | "ok" | "bad";
 type Checks = { q: [CheckState, string]; n: [CheckState, string]; g: [CheckState, string] };
 
@@ -257,7 +260,8 @@ export function MakeWizard({ naverStoreUrl }: { naverStoreUrl: string }) {
               <tbody>
                 <tr><td>기본 제작비 ({optionLabel(draft.type, draft.size)})</td><td>{won(draft.price.base)}</td></tr>
                 <tr><td>블럭 {draft.blockCount.toLocaleString()}개 (10개 × {draft.price.blockQty}, 10개당 {won(PRICE_PER_10_BLOCKS)})</td><td>{won(draft.price.blocks)}</td></tr>
-                <tr className="total"><td>합계 (무료배송)</td><td>{won(draft.price.total)}</td></tr>
+                <tr><td>배송비</td><td>{won(draft.price.shipping)}</td></tr>
+                <tr className="total"><td>결제 금액 (배송비 포함)</td><td>{won(draft.price.total)}</td></tr>
               </tbody>
             </table>
             <p className="small" style={{ margin: 0 }}>색상별 부품 목록과 조립 설명서는 결제 후 보내드려요. 실물은 시안과 색감·디테일이 조금 다를 수 있어요.</p>
@@ -282,6 +286,9 @@ export function MakeWizard({ naverStoreUrl }: { naverStoreUrl: string }) {
                 <li>추가상품 <b>블럭 10개</b> 수량 <b>{code.blockQty}</b> 입력</li>
                 <li>주문 코드 칸에 <b>{code.code}</b> 붙여넣기</li>
               </ol>
+              <p className="small" style={{ margin: "8px 0 0" }}>
+                결제 금액 <b>{won(code.total)}</b> = 기본 제작비 {won(BASE_PRICE[code.type][code.size])} + 블럭 10개 × {code.blockQty} ({won(code.productTotal - BASE_PRICE[code.type][code.size])}) + 배송비 {won(code.shippingFee)}
+              </p>
             </div>
             <p className="small" style={{ margin: 0 }}>
               코드는 {new Date(code.expiresAt).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" })}까지, 한 번만 쓸 수 있어요.

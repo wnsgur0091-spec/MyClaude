@@ -45,6 +45,7 @@ export class MemoryStore implements Store {
   async listVerifications(limit: number) {
     return [...this.verifications].sort((a, b) => +b.createdAt - +a.createdAt).slice(0, limit);
   }
+  async getVerification(id: string) { return this.verifications.find((v) => v.id === id) ?? null; }
   async getQuotaCounts(keys: string[], day: string) {
     return Object.fromEntries(keys.map((k) => [k, this.quota.get(`${day}|${k}`) ?? 0]));
   }

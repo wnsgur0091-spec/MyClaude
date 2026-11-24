@@ -2,7 +2,7 @@ import "server-only";
 import { CODE_VALID_DAYS, formatCode, normalizeCode, parseCode } from "@/shared/orderCode";
 import { optionLabel, type ShapeType, type SizeCm } from "@/shared/options";
 import { calcPrice, PRICE_PER_10_BLOCKS, won } from "@/shared/pricing";
-import { getStore, type CheckResult, type OrderCode, type OrderVerification } from "./db";
+import { getStore, paymentTotal, type CheckResult, type OrderCode, type OrderVerification } from "./db";
 import { newId, randomCodeChars } from "./ids";
 
 /** 시안에 대한 주문 코드 발급. 같은 시안에 아직 유효한 코드가 있으면 그대로 돌려준다 */
@@ -18,7 +18,7 @@ export async function issueOrderCode(draftId: string, deviceId: string): Promise
   for (let attempt = 0; attempt < 10; attempt++) {
     const oc: OrderCode = {
       code: formatCode(draft.type, draft.size, randomCodeChars(4)), draftId, type: draft.type, size: draft.size,
-      blockCount: draft.blockCount, blockQty: p.blockQty, total: p.total,
+      blockCount: draft.blockCount, blockQty: p.blockQty, productTotal: p.productTotal, shippingFee: p.shipping,
       createdAt: now, expiresAt: new Date(now.getTime() + CODE_VALID_DAYS * 86400_000), usedAt: null, orderId: null,
     };
     if (await store.createOrderCode(oc)) return oc;
@@ -65,11 +65,12 @@ export function runChecks(oc: OrderCode | null, paid: PaidInfo, now: Date): Chec
   }
   out.push({ key: "qty", ok: true, title: "수량 일치", message: `블럭 10개 × ${oc.blockQty} (블럭 ${oc.blockCount}개)` });
 
-  if (paid.amount !== oc.total) {
-    out.push({ key: "amt", ok: false, title: "금액 불일치", message: `결제 금액 ${won(paid.amount)}이 시안 금액 ${won(oc.total)}과 달라요. 판매자센터의 옵션·추가상품 가격 설정을 확인해 주세요.` });
+  const expected = paymentTotal(oc);
+  if (paid.amount !== expected) {
+    out.push({ key: "amt", ok: false, title: "금액 불일치", message: `결제 금액 ${won(paid.amount)}이 시안 결제 금액 ${won(expected)}(배송비 ${won(oc.shippingFee)} 포함)과 달라요. 판매자센터의 옵션·추가상품·배송비 설정을 확인해 주세요.` });
     return out;
   }
-  out.push({ key: "amt", ok: true, title: "금액 확인", message: won(oc.total) });
+  out.push({ key: "amt", ok: true, title: "금액 확인", message: `${won(expected)} (상품 ${won(oc.productTotal)} + 배송비 ${won(oc.shippingFee)})` });
   return out;
 }
 

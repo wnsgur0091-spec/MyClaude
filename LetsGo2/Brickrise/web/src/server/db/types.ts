@@ -11,6 +11,9 @@ export type ConsentRecord = {
   createdAt: Date;
 };
 
+/** 결제 금액 = 상품 금액 + 배송비 */
+export const paymentTotal = (oc: Pick<OrderCode, "productTotal" | "shippingFee">) => oc.productTotal + oc.shippingFee;
+
 export type Draft = {
   id: string;
   deviceId: string;
@@ -23,7 +26,8 @@ export type Draft = {
   model: BrickModel;
   blockCount: number;
   colorCount: number;
-  total: number;
+  /** 상품 금액 (배송비 제외) */
+  productTotal: number;
   createdAt: Date;
 };
 
@@ -34,7 +38,9 @@ export type OrderCode = {
   size: SizeCm;
   blockCount: number;
   blockQty: number;
-  total: number;
+  /** 상품 금액 (배송비 제외) */
+  productTotal: number;
+  shippingFee: number;
   createdAt: Date;
   expiresAt: Date;
   usedAt: Date | null;
@@ -74,6 +80,7 @@ export interface Store {
 
   saveVerification(v: OrderVerification): Promise<void>;
   listVerifications(limit: number): Promise<OrderVerification[]>;
+  getVerification(id: string): Promise<OrderVerification | null>;
 
   getQuotaCounts(keys: string[], day: string): Promise<Record<string, number>>;
   incrementQuota(keys: string[], day: string): Promise<void>;

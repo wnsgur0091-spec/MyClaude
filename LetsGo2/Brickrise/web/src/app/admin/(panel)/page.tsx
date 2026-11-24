@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { VerifyForm } from "@/components/admin/VerifyForm";
-import { getStore } from "@/server/db";
+import { getStore, paymentTotal } from "@/server/db";
 import { optionLabel } from "@/shared/options";
 import { won } from "@/shared/pricing";
 
@@ -48,7 +48,7 @@ export default async function AdminHome() {
         {codes.length === 0 ? <p className="small">아직 없어요.</p> : (
           <div className="table-wrap">
             <table className="list">
-              <thead><tr><th>발급</th><th>코드</th><th>옵션</th><th className="num">블럭 수</th><th className="num">블럭 10개 수량</th><th className="num">금액</th><th>상태</th><th></th></tr></thead>
+              <thead><tr><th>발급</th><th>코드</th><th>옵션</th><th className="num">블럭 수</th><th className="num">블럭 10개 수량</th><th className="num">결제 금액</th><th>상태</th><th></th></tr></thead>
               <tbody>
                 {codes.map((c) => (
                   <tr key={c.code}>
@@ -57,7 +57,7 @@ export default async function AdminHome() {
                     <td>{optionLabel(c.type, c.size)}</td>
                     <td className="num">{c.blockCount.toLocaleString()}</td>
                     <td className="num">{c.blockQty}</td>
-                    <td className="num">{won(c.total)}</td>
+                    <td className="num">{won(paymentTotal(c))}</td>
                     <td>{c.usedAt ? <span className="badge ok">주문 확인</span> : c.expiresAt <= now ? <span className="badge">만료</span> : <span className="badge wait">결제 대기</span>}</td>
                     <td><Link href={`/admin/orders/${encodeURIComponent(c.code)}`}>보기</Link></td>
                   </tr>

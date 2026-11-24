@@ -34,7 +34,7 @@ export class PostgresStore implements Store {
     const sql = await this.q();
     await sql`INSERT INTO drafts (id, device_id, shape, size_cm, photo_hash, photo_key, generator, is_mock, model, block_count, color_count, total, created_at)
       VALUES (${d.id}, ${d.deviceId}, ${d.type}, ${d.size}, ${d.photoHash}, ${d.photoKey}, ${d.generator}, ${d.isMock},
-              ${sql.json(d.model)}, ${d.blockCount}, ${d.colorCount}, ${d.total}, ${d.createdAt})`;
+              ${sql.json(d.model)}, ${d.blockCount}, ${d.colorCount}, ${d.productTotal}, ${d.createdAt})`;
   }
   async getDraft(id: string) {
     if (!isUuid(id)) return null;
@@ -51,8 +51,8 @@ export class PostgresStore implements Store {
 
   async createOrderCode(oc: OrderCode) {
     const sql = await this.q();
-    const rows = await sql`INSERT INTO order_codes (code, draft_id, shape, size_cm, block_count, block_qty, total, created_at, expires_at)
-      VALUES (${oc.code}, ${oc.draftId}, ${oc.type}, ${oc.size}, ${oc.blockCount}, ${oc.blockQty}, ${oc.total}, ${oc.createdAt}, ${oc.expiresAt})
+    const rows = await sql`INSERT INTO order_codes (code, draft_id, shape, size_cm, block_count, block_qty, total, shipping_fee, created_at, expires_at)
+      VALUES (${oc.code}, ${oc.draftId}, ${oc.type}, ${oc.size}, ${oc.blockCount}, ${oc.blockQty}, ${oc.productTotal}, ${oc.shippingFee}, ${oc.createdAt}, ${oc.expiresAt})
       ON CONFLICT (code) DO NOTHING RETURNING code`;
     return rows.length === 1;
   }
@@ -87,6 +87,13 @@ export class PostgresStore implements Store {
     return (await sql`SELECT * FROM order_verifications ORDER BY created_at DESC LIMIT ${limit}`).map(toVerification);
   }
 
+  async getVerification(id: string) {
+    if (!isUuid(id)) return null;
+    const sql = await this.q();
+    const [r] = await sql`SELECT * FROM order_verifications WHERE id = ${id}`;
+    return r ? toVerification(r) : null;
+  }
+
   async getQuotaCounts(keys: string[], day: string) {
     const sql = await this.q();
     const rows = await sql`SELECT key, count FROM quota_counters WHERE day = ${day} AND key IN ${sql(keys)}`;
@@ -112,11 +119,11 @@ const toConsent = (r: Row): ConsentRecord => ({
 const toDraft = (r: Row): Draft => ({
   id: r.id, deviceId: r.device_id, type: r.shape, size: r.size_cm, photoHash: r.photo_hash, photoKey: r.photo_key,
   generator: r.generator, isMock: r.is_mock, model: r.model, blockCount: r.block_count, colorCount: r.color_count,
-  total: r.total, createdAt: new Date(r.created_at),
+  productTotal: r.total, createdAt: new Date(r.created_at),
 });
 const toCode = (r: Row): OrderCode => ({
   code: r.code, draftId: r.draft_id, type: r.shape, size: r.size_cm, blockCount: r.block_count, blockQty: r.block_qty,
-  total: r.total, createdAt: new Date(r.created_at), expiresAt: new Date(r.expires_at),
+  productTotal: r.total, shippingFee: r.shipping_fee, createdAt: new Date(r.created_at), expiresAt: new Date(r.expires_at),
   usedAt: r.used_at ? new Date(r.used_at) : null, orderId: r.order_id,
 });
 const toVerification = (r: Row): OrderVerification => ({
