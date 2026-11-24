@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>브릭라이즈 스마트스토어 이미지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  네이버 스마트스토어 업로드용 이미지 원본.
+  각 <section data-out="파일명">을 render.js가 PNG로 저장한다 (대표 이미지 1000×1000, 상세페이지 가로 860px).
+  .tbd 표시는 아직 정해지지 않은 정보: 확정 후 문구를 고치고 다시 렌더링할 것.
+-->
+<style>
+:root{
+  --ink:#1b2130; --ink-2:#4b5468; --ink-3:#6b7387; --line:#d8deea; --bg:#eef1f6; --surface:#fff; --surface-2:#f5f7fb;
+  --accent:#2f6fd6; --accent-soft:#e6efff; --brick:#f5b82e; --brick-soft:#fff4d4; --naver:#03a14a; --bad:#c9372c;
+  --f-display:"Do Hyeon","IBM Plex Sans KR",sans-serif; --f-body:"IBM Plex Sans KR",sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:40px;background:#eef1f6;font-family:var(--f-body);color:var(--ink);display:grid;gap:40px;justify-content:center}
+section{position:relative;overflow:hidden;background:var(--bg);
+  background-image:radial-gradient(rgba(27,33,48,.06) 3px,transparent 3.5px);background-size:22px 22px}
+.d{width:860px;padding:72px 56px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;letter-spacing:-.005em}
+p{margin:0}
+.eyebrow{display:inline-block;font-weight:700;font-size:18px;color:var(--accent);background:var(--accent-soft);padding:6px 16px;border-radius:99px}
+.lead{font-size:24px;line-height:1.6;color:var(--ink-2)}
+.card{background:var(--surface);border:2px solid var(--line);border-radius:28px;padding:28px}
+.ai{position:absolute;left:18px;top:18px;font-size:15px;font-weight:700;padding:5px 12px;border-radius:10px;background:rgba(20,26,40,.75);color:#fff}
+.tbd{white-space:nowrap;background:#ffe3e0;color:var(--bad);border:2px dashed var(--bad);border-radius:8px;padding:0 6px;font-weight:700}
+.logo{font-family:var(--f-display);display:inline-flex;align-items:center;gap:12px}
+.logo i{width:34px;height:24px;border-radius:4px;background:var(--brick);position:relative;display:inline-block}
+.logo i::before,.logo i::after{content:"";position:absolute;top:-6px;width:10px;height:6px;border-radius:3px 3px 0 0;background:var(--brick)}
+.logo i::before{left:3px}.logo i::after{right:3px}
+.photo{border-radius:20px;background:#fff;padding:14px;box-shadow:0 18px 40px -20px rgba(20,30,60,.45)}
+.photo img{display:block;width:100%;border-radius:10px}
+.arrow{font-family:var(--f-display);color:var(--brick);text-shadow:0 2px 0 rgba(0,0,0,.08)}
+canvas{display:block}
+
+/* 대표 이미지 */
+#thumb{width:1000px;height:1000px;background-color:#fdf6e3}
+#thumb .photo{position:absolute;left:64px;top:80px;width:400px;transform:rotate(-5deg)}
+#thumb .arrow{position:absolute;left:400px;top:420px;font-size:120px;transform:rotate(30deg)}
+#thumb canvas{position:absolute;right:10px;bottom:90px}
+#thumb .logo{position:absolute;left:64px;bottom:56px;font-size:44px}
+
+/* 상세 1: 히어로 */
+#d1 h1{font-size:64px;line-height:1.18;margin:22px 0 22px}
+#d1 .visual{position:relative;height:430px;margin-top:30px}
+#d1 .photo{position:absolute;left:0;top:30px;width:300px;transform:rotate(-4deg)}
+#d1 .arrow{position:absolute;left:296px;top:150px;font-size:96px}
+#d1 canvas{position:absolute;right:-10px;top:0}
+#d1 .chips{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+#d1 .chips span{font-size:20px;font-weight:700;background:#fff;border:2px solid var(--line);border-radius:99px;padding:8px 18px}
+
+/* 상세 2: 이렇게 만들어져요 */
+.steps{display:grid;gap:18px;margin-top:36px}
+.step{display:grid;grid-template-columns:88px 1fr;gap:22px;align-items:center;background:#fff;border:2px solid var(--line);border-radius:24px;padding:22px 26px}
+.step b.n{width:88px;height:88px;border-radius:22px;background:var(--brick);display:grid;place-items:center;font-family:var(--f-display);font-size:44px;font-weight:400}
+.step h3{font-size:30px;margin-bottom:6px}
+.step p{font-size:20px;color:var(--ink-2);line-height:1.5}
+.step em{font-style:normal;font-size:15px;font-weight:700;color:var(--naver);background:#e4f6ea;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:4px}
+
+/* 상세 3: 형태·크기·가격 */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:34px}
+.two .card{padding:22px;text-align:center}
+.two .view{position:relative;background:var(--surface-2);border-radius:18px;height:270px;display:grid;place-items:center;margin-bottom:16px}
+.two h3{font-size:34px}
+.two p{font-size:18px;color:var(--ink-2);margin-top:4px}
+table.t{width:100%;border-collapse:collapse;font-size:21px;margin-top:26px;background:#fff;border-radius:20px;overflow:hidden;font-variant-numeric:tabular-nums}
+table.t th{background:var(--ink);color:#fff;font-weight:600;padding:14px 10px}
+table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--line)}
+.formula{margin-top:22px;font-size:20px;background:#fff;border:2px solid var(--brick);border-radius:20px;padding:20px 24px;line-height:1.6}
+.formula b{font-size:24px}
+.formula .ex{white-space:nowrap}
+
+/* 상세 4: 주문 방법 */
+.code{font-family:ui-monospace,Menlo,monospace;font-weight:700;letter-spacing:.06em}
+.bigcode{font-size:58px;text-align:center;padding:26px;border-radius:24px;background:#fff;border:3px dashed var(--accent);margin-top:30px}
+.decode{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px;text-align:center}
+.decode div{background:#fff;border-radius:16px;padding:14px;font-size:18px;color:var(--ink-2)}
+.decode b{display:block;font-size:30px;color:var(--ink);font-family:ui-monospace,Menlo,monospace}
+.order{margin-top:28px;display:grid;gap:14px}
+.order .row{display:grid;grid-template-columns:200px 1fr;align-items:center;background:#fff;border-radius:18px;padding:18px 22px;border:2px solid var(--line);font-size:21px}
+.order .row span{font-weight:700;color:var(--ink-3);font-size:18px}
+.order .row.hl{border-color:var(--naver)}
+
+/* 상세 5: CTA */
+#d5{text-align:center}
+#d5 h2{font-size:56px;line-height:1.2;margin:18px 0}
+.btn{display:inline-block;margin-top:34px;background:var(--naver);color:#fff;font-weight:700;font-size:34px;padding:26px 60px;border-radius:24px;box-shadow:0 14px 30px -14px rgba(3,161,74,.7)}
+.url{margin-top:22px;font-size:26px;font-weight:700;color:var(--ink-2)}
+.qrbox{margin:34px auto 0;display:inline-grid;grid-template-columns:auto auto;gap:22px;align-items:center;text-align:left;background:#fff;border-radius:24px;padding:22px 28px;border:2px solid var(--line)}
+.qrbox img{width:150px;height:150px}
+.qrbox p{font-size:20px;color:var(--ink-2);line-height:1.5}
+.free{margin-top:28px;font-size:22px;color:var(--ink-2)}
+
+/* 상세 6: 꼭 확인해 주세요 */
+.notice{display:grid;gap:14px;margin-top:30px}
+.notice div{background:#fff;border-radius:18px;padding:20px 24px;border:2px solid var(--line);font-size:20px;line-height:1.55;color:var(--ink-2)}
+.notice b{display:block;color:var(--ink);font-size:23px;margin-bottom:4px}
+.foot{margin-top:30px;font-size:17px;color:var(--ink-3);text-align:center}
+</style>
+</head>
+<body>
+
+<!-- 대표 이미지 (1000×1000): 네이버 쇼핑 대표 이미지는 문구를 최소화 -->
+<section id="thumb" data-out="00_thumbnail_1000x1000.png">
+  <div class="photo"><img class="sample-photo" alt=""></div>
+  <div class="arrow">→</div>
+  <canvas data-model="solid150" data-w="700" data-h="620" data-rot="3"></canvas>
+  <div class="logo"><i></i>브릭라이즈</div>
+</section>
+
+<!-- 상세 1: 히어로 -->
+<section id="d1" class="d" data-out="01_hero_860.png">
+  <span class="eyebrow">사진 한 장으로 만드는 맞춤 블럭 키트</span>
+  <h1>우리 집 강아지도,<br>아끼는 물건도<br>블럭으로 다시 만나요</h1>
+  <p class="lead">사진을 올리면 그 모양 그대로 조립할 수 있는<br>나만의 블럭 키트를 보내드려요.</p>
+  <div class="chips"><span>로그인 없이</span><span>무료 시안 하루 3번</span><span>조립 설명서 제공</span></div>
+  <div class="visual">
+    <div class="photo"><img class="sample-photo" alt=""></div>
+    <div class="arrow">→</div>
+    <canvas data-model="solid150" data-w="470" data-h="430" data-rot="3"></canvas>
+    <span class="ai" style="left:auto;right:16px">AI 생성 예시</span>
+  </div>
+</section>
+
+<!-- 상세 2: 이렇게 만들어져요 -->
+<section id="d2" class="d" data-out="02_how_860.png">
+  <span class="eyebrow">이렇게 만들어져요</span>
+  <h2 style="font-size:52px;margin-top:18px">주문까지 4단계면 끝</h2>
+  <div class="steps">
+    <div class="step"><b class="n">1</b><div><h3>형태·크기 고르고 사진 올리기</h3><p>평면 또는 입체, 5·10·15cm 중에서 골라요.<br>밝은 곳에서 피사체가 크게 나온 사진 1장이면 돼요.</p></div></div>
+    <div class="step"><b class="n">2</b><div><h3>무료 시안 확인</h3><p>완성 모양, 총 블럭 수, 가격을 바로 보여드려요.<br>마음에 안 들면 다른 사진으로 다시 만들어 보세요.</p></div></div>
+    <div class="step"><b class="n">3</b><div><h3>주문 코드 받고 결제<em>네이버</em></h3><p>시안마다 주문 코드가 나와요. 이 상품 페이지에서<br>옵션·수량을 고르고 주문 코드를 입력해 결제해요.</p></div></div>
+    <div class="step"><b class="n">4</b><div><h3>받아서 조립</h3><p>상자 안 QR을 찍으면 내 키트 전용 조립 설명서가<br>열려요. 층별로 차근차근 쌓으면 완성!</p></div></div>
+  </div>
+</section>
+
+<!-- 상세 3: 형태·크기·가격 -->
+<section id="d3" class="d" data-out="03_options_price_860.png">
+  <span class="eyebrow">형태와 크기</span>
+  <h2 style="font-size:52px;margin-top:18px">평면으로, 입체로</h2>
+  <div class="two">
+    <div class="card"><div class="view"><span class="ai">AI 생성 예시</span><canvas data-model="flat100" data-w="300" data-h="250"></canvas></div><h3>평면</h3><p>사진을 그대로 픽셀 아트로<br>액자처럼 세워 두기 좋아요</p></div>
+    <div class="card"><div class="view"><span class="ai">AI 생성 예시</span><canvas data-model="solid100" data-w="310" data-h="260" data-rot="3"></canvas></div><h3>입체</h3><p>AI가 사진으로 3D 모양을 만들어<br>사방에서 볼 수 있어요</p></div>
+  </div>
+  <table class="t">
+    <thead><tr><th>크기 (가로 기준)</th><th>가로 칸 수</th><th>평면 기본 제작비</th><th>입체 기본 제작비</th></tr></thead>
+    <tbody>
+      <tr><td>5cm</td><td>약 6칸</td><td><span class="tbd">9,500원</span></td><td><span class="tbd">13,900원</span></td></tr>
+      <tr><td>10cm</td><td>약 12칸</td><td><span class="tbd">11,500원</span></td><td><span class="tbd">16,900원</span></td></tr>
+      <tr><td>15cm</td><td>약 18칸</td><td><span class="tbd">12,900원</span></td><td><span class="tbd">17,900원</span></td></tr>
+    </tbody>
+  </table>
+  <div class="formula">
+    <b>결제 금액 = 기본 제작비 + 블럭 10개당 <span class="tbd">100원</span> + 배송비 <span class="tbd">3,000원</span></b><br>
+    <span class="ex">예) 평면 10cm, 블럭 59개 → 11,500 + 600 (10개 × 6) + 3,000 = <b>15,100원</b></span><br>
+    <span style="font-size:18px;color:var(--ink-3)">블럭 수는 사진마다 달라요. 시안에서 정확한 금액을 먼저 확인하세요.</span>
+  </div>
+</section>
+
+<!-- 상세 4: 주문 방법 -->
+<section id="d4" class="d" data-out="04_order_code_860.png">
+  <span class="eyebrow">주문 방법 · 꼭 읽어 주세요</span>
+  <h2 style="font-size:52px;margin-top:18px">주문 코드대로 결제해 주세요</h2>
+  <p class="lead" style="margin-top:12px">시안을 만들면 아래처럼 주문 코드가 나와요.</p>
+  <div class="bigcode code">BR-3D10-K7Q2</div>
+  <div class="decode"><div><b>3D</b>입체 (평면은 2D)</div><div><b>10</b>크기 10cm</div><div><b>K7Q2</b>내 시안 번호</div></div>
+  <div class="order">
+    <div class="row"><span>① 옵션</span><div>코드와 같은 형태·크기 선택 → <b>입체 10cm</b></div></div>
+    <div class="row"><span>② 추가상품</span><div><b>블럭 10개</b> 수량을 시안 화면에 나온 숫자대로 (예: <b>30</b>)</div></div>
+    <div class="row hl"><span>③ 주문 코드</span><div>입력 칸에 <b class="code">BR-3D10-K7Q2</b> 붙여넣기</div></div>
+  </div>
+  <p class="lead" style="margin-top:24px;font-size:20px">옵션·수량이 코드와 다르면 결제 후 네이버 톡톡으로 연락드려요.<br>주문 코드는 발급 후 7일 동안, 한 번만 쓸 수 있어요.</p>
+</section>
+
+<!-- 상세 5: 시작하기 -->
+<section id="d5" class="d" data-out="05_cta_860.png">
+  <div class="logo" style="font-size:40px"><i></i>브릭라이즈</div>
+  <h2>지금 사진 한 장으로<br>무료 시안을 만들어 보세요</h2>
+  <div class="btn">내 브릭 만들기 →</div>
+  <div class="url"><span class="tbd">brickrise.vercel.app</span></div>
+  <div class="qrbox"><img id="qr" alt=""><p>PC에서 보고 계신다면<br>휴대폰 카메라로 QR을 찍어<br>바로 시작할 수 있어요.</p></div>
+  <p class="free">로그인 없이 · 무료 시안 하루 3번 · 시안 확인 후 결제</p>
+</section>
+
+<!-- 상세 6: 꼭 확인해 주세요 -->
+<section id="d6" class="d" data-out="06_notice_860.png">
+  <span class="eyebrow">구매 전 꼭 확인해 주세요</span>
+  <div class="notice">
+    <div><b>맞춤 제작 상품이에요</b>고객님 사진으로 하나씩 만드는 상품이라 단순 변심에 의한 교환·반품이 어려워요.</div>
+    <div><b>시안과 실물은 조금 다를 수 있어요</b>시안 이미지는 AI로 만든 예시예요. 블럭 색상은 정해진 36색 중 가장 가까운 색으로 바뀌어 색감·디테일·크기에 차이가 있을 수 있어요.</div>
+    <div><b>구성품</b>MYTOYS 디폼블럭 (8×8×7mm), 색상별 여분 포함, QR 조립 설명서 안내지 1장.<br>브릭라이즈는 MYTOYS와 제휴 관계가 없어요.</div>
+    <div><b>안전 정보</b>KC 안전확인 신고번호 <span class="tbd">확정 후 기입</span> · 사용 연령 <span class="tbd">확정 후 기입</span><br>작은 부품이 있어 삼킬 위험이 있으니 만 3세 미만 어린이의 손에 닿지 않게 해 주세요.</div>
+    <div><b>배송</b>결제 확인 후 <span class="tbd">○영업일</span> 안에 제작해 발송해요. 블럭이 모자라거나 궁금한 점은 <b style="display:inline;font-size:20px">네이버 톡톡</b>으로 문의해 주세요.</div>
+  </div>
+  <p class="foot">사진은 시안 제작과 주문 처리에만 쓰이고, 정해진 기간이 지나면 파기돼요.</p>
+</section>
+
+<script src="sample-data.js"></script>
+<script>
+(async function(){
+  const PAL = DEMO.pal, A = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  /* ---- 모델 (docs/demo.html과 같은 형식) ---- */
+  function mk(X,Y,Z){return{X,Y,Z,v:new Int16Array(X*Y*Z).fill(-1),get(x,y,z){return(x<0||y<0||z<0||x>=X||y>=Y||z>=Z)?-1:this.v[(y*Z+z)*X+x]},set(x,y,z,c){this.v[(y*Z+z)*X+x]=c}}}
+  function sample(size){const s=DEMO.sample[size],m=mk(s.X,s.Y,s.Z);for(let i=0;i<s.d.length;i++){const ch=s.d[i];m.v[i]=ch==="."?-1:A.indexOf(ch)}return m}
+  function rotate(m,k){let cur=m;for(let t=0;t<((k%4)+4)%4;t++){const o=cur,n=mk(o.Z,o.Y,o.X);for(let y=0;y<o.Y;y++)for(let x=0;x<n.X;x++)for(let z=0;z<n.Z;z++)n.set(x,y,z,o.get(z,y,o.Z-1-x));cur=n}return cur}
+  /* ---- 사진 → 평면 배색 (사이트와 같은 로직) ---- */
+  function lab(r,g,b){const f=c=>{c/=255;return c>.04045?Math.pow((c+.055)/1.055,2.4):c/12.92};let R=f(r),G=f(g),B=f(b);let x=(R*.4124+G*.3576+B*.1805)/.95047,y=R*.2126+G*.7152+B*.0722,z=(R*.0193+G*.1192+B*.9505)/1.08883;const h=t=>t>.008856?Math.cbrt(t):7.787*t+16/116;x=h(x);y=h(y);z=h(z);return[116*y-16,500*(x-y),200*(y-z)]}
+  const PLAB=PAL.map(p=>lab(...p.rgb)), NEU=new Set(PAL.map((p,i)=>["흰색","회색","진회색","검정색"].includes(p.name)?i:-1).filter(i=>i>=0));
+  function nearest(r,g,b){const L=lab(r,g,b),gray=Math.max(r,g,b)-Math.min(r,g,b)<42;let bi=0,bd=1e9;PLAB.forEach((p,i)=>{if(gray&&!NEU.has(i))return;const d=(p[0]-L[0])**2+(p[1]-L[1])**2+(p[2]-L[2])**2;if(d<bd){bd=d;bi=i}});return bi}
+  function flatFrom(img,cols){
+    const W=Math.min(240,img.naturalWidth),H=Math.round(W*img.naturalHeight/img.naturalWidth),cv=document.createElement("canvas");cv.width=W;cv.height=H;
+    const cx=cv.getContext("2d",{willReadFrequently:true});cx.drawImage(img,0,0,W,H);const d=cx.getImageData(0,0,W,H).data,bg=new Uint8Array(W*H);
+    const bs=[];for(let x=0;x<W;x++)bs.push(x,(H-1)*W+x);for(let y=0;y<H;y++)bs.push(y*W,y*W+W-1);
+    const md=k=>bs.map(i=>d[i*4+k]).sort((a,b)=>a-b)[bs.length>>1],mr=md(0),mg=md(1),mb=md(2);
+    const near=i=>Math.abs(d[i*4]-mr)+Math.abs(d[i*4+1]-mg)+Math.abs(d[i*4+2]-mb)<30,q=[];
+    for(const i of bs)if(!bg[i]&&near(i)){bg[i]=1;q.push(i)}
+    while(q.length){const i=q.pop(),x=i%W,y=(i/W)|0;for(const j of[x>0?i-1:-1,x<W-1?i+1:-1,y>0?i-W:-1,y<H-1?i+W:-1])if(j>=0&&!bg[j]&&near(j)){bg[j]=1;q.push(j)}}
+    const rows=Math.max(1,Math.round(cols*H/W)),cells=[];
+    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){let n=0,t=0,R=0,G=0,B=0;const x0=Math.floor(c*W/cols),x1=Math.floor((c+1)*W/cols),y0=Math.floor(r*H/rows),y1=Math.floor((r+1)*H/rows);
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*W+x;t++;if(!bg[i]){n++;R+=d[i*4];G+=d[i*4+1];B+=d[i*4+2]}}cells.push(n>t*.4?[R/n,G/n,B/n]:null)}
+    const ls=cells.filter(Boolean).map(c=>.299*c[0]+.587*c[1]+.114*c[2]).sort((a,b)=>a-b),p95=ls.length?ls[Math.floor(ls.length*.95)]:255,k=p95<225?225/Math.max(p95,1):1;
+    const m=mk(cols,1,rows);cells.forEach((c,i)=>m.v[i]=c?nearest(...c.map(v=>Math.min(255,v*k))):-1);return m}
+  /* ---- 그리기 ---- */
+  const shade=(rgb,s)=>`rgb(${rgb.map(v=>Math.min(255,Math.round(v*s))).join(",")})`;
+  function prep(cv,w,h){const dpr=2;cv.width=w*dpr;cv.height=h*dpr;cv.style.width=w+"px";cv.style.height=h+"px";const c=cv.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);return c}
+  function drawIso(cv,m,W,Hh){const c=prep(cv,W,Hh),HR=7/8,raw=(x,y,z)=>[(x-z),(x+z)*.5-y*HR],pts=[];
+    for(const x of[0,m.X])for(const y of[0,m.Y])for(const z of[0,m.Z])pts.push(raw(x,y,z));
+    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys);
+    const s=Math.min((W-30)/(mxx-mnx),(Hh-30)/(mxy-mny)),ox=(W-(mxx-mnx)*s)/2-mnx*s,oy=(Hh-(mxy-mny)*s)/2-mny*s,P=(x,y,z)=>{const r=raw(x,y,z);return[r[0]*s+ox,r[1]*s+oy]};
+    const cells=[];for(let y=0;y<m.Y;y++)for(let z=0;z<m.Z;z++)for(let x=0;x<m.X;x++)if(m.get(x,y,z)>=0)cells.push([x,y,z]);cells.sort((a,b)=>(a[0]+a[1]+a[2])-(b[0]+b[1]+b[2]));
+    const poly=(pp,f)=>{c.beginPath();c.moveTo(...pp[0]);for(const p of pp.slice(1))c.lineTo(...p);c.closePath();c.fillStyle=f;c.fill();c.strokeStyle="rgba(0,0,0,.22)";c.lineWidth=.8;c.stroke()};
+    for(const[x,y,z]of cells){const rgb=PAL[m.get(x,y,z)].rgb,top=m.get(x,y+1,z)<0;
+      if(top)poly([P(x,y+1,z),P(x+1,y+1,z),P(x+1,y+1,z+1),P(x,y+1,z+1)],shade(rgb,1));
+      if(m.get(x+1,y,z)<0)poly([P(x+1,y,z),P(x+1,y,z+1),P(x+1,y+1,z+1),P(x+1,y+1,z)],shade(rgb,.8));
+      if(m.get(x,y,z+1)<0)poly([P(x,y,z+1),P(x+1,y,z+1),P(x+1,y+1,z+1),P(x,y+1,z+1)],shade(rgb,.64));
+      if(top&&s>9){const[cx,cy]=P(x+.5,y+1,z+.5);c.beginPath();c.ellipse(cx,cy-s*.06,s*.42,s*.21,0,0,Math.PI*2);c.fillStyle=shade(rgb,1.06);c.fill();c.strokeStyle="rgba(0,0,0,.18)";c.stroke()}}}
+  function drawFlat(cv,m,W,Hh){const c=prep(cv,W,Hh),s=Math.min((W-10)/m.X,(Hh-10)/m.Z),ox=(W-m.X*s)/2,oy=(Hh-m.Z*s)/2;
+    for(let r=0;r<m.Z;r++)for(let x=0;x<m.X;x++){const v=m.get(x,0,r);if(v<0)continue;const rgb=PAL[v].rgb,X0=ox+x*s,Y0=oy+r*s;
+      c.fillStyle=shade(rgb,1);c.fillRect(X0+.5,Y0+.5,s-1,s-1);c.beginPath();c.arc(X0+s/2,Y0+s/2,s*.3,0,Math.PI*2);c.fillStyle=shade(rgb,1.08);c.fill();c.strokeStyle="rgba(0,0,0,.2)";c.stroke()}}
+
+  const photoUrl = "../../assets/sample_controller_photo.jpg";
+  const img = await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=photoUrl});
+  document.querySelectorAll("img.sample-photo").forEach(e=>e.src=photoUrl);
+  document.getElementById("qr").src = "qr.svg";
+  const models = { solid150: sample("150"), solid100: sample("100"), flat100: flatFrom(img, 12) };
+  document.querySelectorAll("canvas[data-model]").forEach(cv=>{
+    const m = models[cv.dataset.model], w=+cv.dataset.w, h=+cv.dataset.h;
+    if (cv.dataset.model.startsWith("flat")) drawFlat(cv,m,w,h); else drawIso(cv,rotate(m,+(cv.dataset.rot||0)),w,h);
+  });
+  await document.fonts.ready;
+  document.body.dataset.ready = "1";
+})();
+</script>
+</body>
+</html>

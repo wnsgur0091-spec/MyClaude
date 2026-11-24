@@ -86,8 +86,6 @@ export function VerifyForm() {
             {info.usedAt && <><br />이미 {new Date(info.usedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}에 검증을 통과한 코드예요.</>}
           </div>
         )}
-        <label htmlFor="v-order">네이버 주문번호</label>
-        <input id="v-order" value={f.naverOrderNo} onChange={set("naverOrderNo")} autoComplete="off" />
         <label htmlFor="v-opt">결제 옵션</label>
         <select id="v-opt" value={f.option} onChange={set("option")}>
           {SHAPES.flatMap((t) => SIZES.map((z) => <option key={`${t}-${z}`} value={`${t}-${z}`}>{optionLabel(t, z)}</option>))}
@@ -99,6 +97,10 @@ export function VerifyForm() {
         <label htmlFor="v-amt">결제 금액 (원, 배송비 포함)</label>
         <input id="v-amt" type="number" inputMode="numeric" min={0} step={1} value={f.amount} onChange={set("amount")} required />
         {info && hint("amount", `${won(info.paymentTotal)} (상품 ${won(info.productTotal)} + 배송비 ${won(info.shippingFee)})`)}
+        <label htmlFor="v-order">네이버 주문번호 (선택)</label>
+        <input id="v-order" value={f.naverOrderNo} onChange={set("naverOrderNo")} autoComplete="off" placeholder="판매자센터에서 복사해 붙여넣기" />
+        {/* TODO: 네이버 커머스 API 연동 후 주문 코드로 네이버 주문을 찾아 자동 입력 */}
+        <small className="field-hint">차액 결제·부분 환불 때 네이버 주문을 찾기 위한 기록이에요. 네이버 커머스 API를 연동하면 자동으로 채워집니다.</small>
         <button className="btn" style={{ marginTop: 12 }} disabled={busy}>검증하기</button>
       </form>
       {err && <div className="notice warn" role="alert">{err}</div>}
