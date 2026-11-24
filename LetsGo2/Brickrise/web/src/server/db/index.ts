@@ -20,3 +20,4 @@ export function getStore(): Store {
 
 export const storageMode = () => (config.databaseUrl ? "postgres" : "memory");
 export type * from "./types";
+export { paymentTotal } from "./types";

@@ -79,10 +79,10 @@ describe("품질 검사", () => {
 describe("주문 검증 4단계", () => {
   const now = new Date("2026-11-23T00:00:00Z");
   const oc: OrderCode = {
-    code: "BR-3D10-K7Q2", draftId: "d", type: "solid", size: 10, blockCount: 298, blockQty: 30, total: 19900,
+    code: "BR-3D10-K7Q2", draftId: "d", type: "solid", size: 10, blockCount: 298, blockQty: 30, productTotal: 19900, shippingFee: 3000,
     createdAt: now, expiresAt: new Date(now.getTime() + 7 * 86400_000), usedAt: null, orderId: null,
   };
-  const paid = { code: "br-3d10-k7q2", naverOrderNo: "1", type: "solid" as const, size: 10 as const, qty: 30, amount: 19900 };
+  const paid = { code: "br-3d10-k7q2", naverOrderNo: "1", type: "solid" as const, size: 10 as const, qty: 30, amount: 22900 };
   const keys = (r: ReturnType<typeof runChecks>) => r.map((c) => `${c.key}:${c.ok ? "ok" : c.title}`);
 
   it("모두 맞으면 4단계 통과", () => {
@@ -98,7 +98,7 @@ describe("주문 검증 4단계", () => {
     expect(keys(runChecks(oc, { ...paid, qty: 28 }, now)).at(-1)).toBe("qty:수량 부족");
     expect(runChecks(oc, { ...paid, qty: 28 }, now).at(-1)!.message).toContain("200원");
     expect(keys(runChecks(oc, { ...paid, qty: 31 }, now)).at(-1)).toBe("qty:수량 초과");
-    expect(keys(runChecks(oc, { ...paid, amount: 19000 }, now)).at(-1)).toBe("amt:금액 불일치");
+    expect(keys(runChecks(oc, { ...paid, amount: 19900 }, now)).at(-1)).toBe("amt:금액 불일치"); // 배송비 빠진 금액
   });
 });
 
@@ -106,7 +106,7 @@ describe("메모리 저장소", () => {
   it("코드는 한 번만 사용 처리", async () => {
     const s = new MemoryStore();
     const now = new Date();
-    const oc: OrderCode = { code: "BR-2D05-AAAA", draftId: "d", type: "flat", size: 5, blockCount: 1, blockQty: 1, total: 1, createdAt: now, expiresAt: now, usedAt: null, orderId: null };
+    const oc: OrderCode = { code: "BR-2D05-AAAA", draftId: "d", type: "flat", size: 5, blockCount: 1, blockQty: 1, productTotal: 1, shippingFee: 0, createdAt: now, expiresAt: now, usedAt: null, orderId: null };
     expect(await s.createOrderCode(oc)).toBe(true);
     expect(await s.createOrderCode({ ...oc })).toBe(false);
     expect(await s.markCodeUsed(oc.code, "o1", now)).toBe(true);

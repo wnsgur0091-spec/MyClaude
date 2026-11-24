@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS order_codes (
   order_id     uuid
 );
 CREATE INDEX IF NOT EXISTS order_codes_draft_idx ON order_codes (draft_id);
+-- 배송비 (2026-11 추가). total은 상품 금액(배송비 제외), 결제 금액 = total + shipping_fee.
+-- DEFAULT 3000은 이 컬럼 추가 전에 발급된 코드에만 적용되고, 새 코드는 발급 시점의 배송비를 저장한다.
+ALTER TABLE order_codes ADD COLUMN IF NOT EXISTS shipping_fee integer NOT NULL DEFAULT 3000;
 
 -- 결제 후 주문 검증 기록 (불일치 포함 모두 남김)
 CREATE TABLE IF NOT EXISTS order_verifications (

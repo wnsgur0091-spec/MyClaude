@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { BrickCanvas } from "@/components/BrickCanvas";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { config } from "@/server/config";
-import { getStore } from "@/server/db";
+import { getStore, paymentTotal } from "@/server/db";
 import { colorCounts, sizeMm } from "@/shared/model";
 import { normalizeCode } from "@/shared/orderCode";
 import { optionLabel } from "@/shared/options";
@@ -37,7 +37,7 @@ export default async function WorkOrderPage({ params }: { params: Promise<{ code
           <div><div className="label">크기</div>{sizeMm(draft.model, draft.type === "flat")}</div>
           <div><div className="label">블럭 수</div>{oc.blockCount.toLocaleString()}개 ({counts.length}색)</div>
           <div><div className="label">피킹 합계 (여분 포함)</div>{totalPick.toLocaleString()}개{w ? ` · 약 ${Math.round(totalPick * w).toLocaleString()}g` : ""}</div>
-          <div><div className="label">금액</div>{won(oc.total)}</div>
+          <div><div className="label">결제 금액</div>{won(paymentTotal(oc))} <span className="small">(배송비 {won(oc.shippingFee)} 포함)</span></div>
           <div><div className="label">상태</div>{oc.usedAt ? "주문 확인됨" : "결제 대기 (검증 전)"}</div>
         </div>
         {!oc.usedAt && <div className="notice warn">아직 주문 검증을 통과하지 않은 코드예요. 검증 후 작업해 주세요.</div>}

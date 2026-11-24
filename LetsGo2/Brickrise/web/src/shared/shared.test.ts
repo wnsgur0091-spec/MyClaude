@@ -20,8 +20,9 @@ describe("주문 코드", () => {
 });
 
 describe("가격", () => {
-  it("기본 제작비 + ceil(블럭 수 / 10) × 100원", () => {
-    expect(calcPrice("solid", 10, 298)).toEqual({ base: 16900, blockCount: 298, blockQty: 30, blocks: 3000, total: 19900 });
+  it("기본 제작비 + ceil(블럭 수 / 10) × 100원 + 배송비", () => {
+    expect(calcPrice("solid", 10, 298)).toEqual({ base: 16900, blockCount: 298, blockQty: 30, blocks: 3000, productTotal: 19900, shipping: 3000, total: 22900 });
+    expect(calcPrice("flat", 10, 59).total).toBe(15100); // BR-2D10-KYSB
     expect(calcPrice("flat", 5, 30).blockQty).toBe(3);
   });
 });

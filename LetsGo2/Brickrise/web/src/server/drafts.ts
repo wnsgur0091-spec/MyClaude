@@ -85,7 +85,7 @@ export async function createDraft(input: {
   const photoKey = await savePhoto(id, input.photo, input.mimeType);
   const draft: Draft = {
     id, deviceId: input.deviceId, type: input.type, size: input.size, photoHash, photoKey, generator, isMock, model,
-    blockCount, colorCount: colorCounts(model).length, total: calcPrice(input.type, input.size, blockCount).total, createdAt: new Date(),
+    blockCount, colorCount: colorCounts(model).length, productTotal: calcPrice(input.type, input.size, blockCount).productTotal, createdAt: new Date(),
   };
   await store.createDraft(draft);
   await useQuota(store, input.deviceId, input.ipHash, day);

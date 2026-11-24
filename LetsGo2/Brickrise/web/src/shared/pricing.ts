@@ -10,14 +10,28 @@ export const BASE_PRICE: Record<ShapeType, Record<SizeCm, number>> = {
 };
 /** 추가상품 '블럭 10개' 1개 가격 */
 export const PRICE_PER_10_BLOCKS = 100;
+/** 배송비 (고객 부담, 임시 값). 네이버 상품의 배송비 설정과 같게 맞출 것 */
+export const SHIPPING_FEE = 3000;
 
-export type Price = { base: number; blockCount: number; blockQty: number; blocks: number; total: number };
+export type Price = {
+  base: number;
+  blockCount: number;
+  /** 추가상품 '블럭 10개' 수량 */
+  blockQty: number;
+  blocks: number;
+  /** 상품 금액 = 기본 제작비 + 블럭 */
+  productTotal: number;
+  shipping: number;
+  /** 결제 금액 = 상품 금액 + 배송비 */
+  total: number;
+};
 
-export function calcPrice(type: ShapeType, size: SizeCm, blockCount: number): Price {
+export function calcPrice(type: ShapeType, size: SizeCm, blockCount: number, shipping = SHIPPING_FEE): Price {
   const base = BASE_PRICE[type][size];
   const blockQty = Math.ceil(blockCount / 10);
   const blocks = blockQty * PRICE_PER_10_BLOCKS;
-  return { base, blockCount, blockQty, blocks, total: base + blocks };
+  const productTotal = base + blocks;
+  return { base, blockCount, blockQty, blocks, productTotal, shipping, total: productTotal + shipping };
 }
 
 export const won = (n: number) => n.toLocaleString("ko-KR") + "원";
