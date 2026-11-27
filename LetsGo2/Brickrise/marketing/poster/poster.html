@@ -37,6 +37,7 @@ p{margin:0}
 .photo img{display:block;width:100%;border-radius:10px}
 .arrow{font-family:var(--f-display);color:var(--brick);text-shadow:0 2px 0 rgba(0,0,0,.08)}
 canvas{display:block}
+#detail{display:grid;gap:0;width:860px}
 
 /* 대표 이미지 */
 #thumb{width:1000px;height:1000px;background-color:#fdf6e3}
@@ -95,6 +96,11 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
 .qrbox img{width:150px;height:150px}
 .qrbox p{font-size:20px;color:var(--ink-2);line-height:1.5}
 .free{margin-top:28px;font-size:22px;color:var(--ink-2)}
+.go{margin-top:28px;display:grid;grid-template-columns:1fr auto auto;gap:22px;align-items:center;background:#fff;border:2px solid var(--line);border-radius:26px;padding:22px 26px}
+.go .btn.sm{margin:0;font-size:28px;padding:20px 34px}
+.go .url.sm{margin-top:10px;font-size:22px}
+.go img{width:110px;height:110px}
+.go p{font-size:18px;color:var(--ink-2);line-height:1.45}
 
 /* 상세 6: 꼭 확인해 주세요 */
 .notice{display:grid;gap:14px;margin-top:30px}
@@ -113,6 +119,8 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
   <div class="logo"><i></i>브릭라이즈</div>
 </section>
 
+<div id="detail" data-out="detail_full_860.png">
+
 <!-- 상세 1: 히어로 -->
 <section id="d1" class="d" data-out="01_hero_860.png">
   <span class="eyebrow">사진 한 장으로 만드는 맞춤 블럭 키트</span>
@@ -124,6 +132,10 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
     <div class="arrow">→</div>
     <canvas data-model="solid150" data-w="470" data-h="430" data-rot="3"></canvas>
     <span class="ai" style="left:auto;right:16px">AI 생성 예시</span>
+  </div>
+  <div class="go">
+    <div><div class="btn sm">내 브릭 만들기 →</div><p class="url sm"><span class="tbd">brickrise.vercel.app</span></p></div>
+    <img class="qr" alt=""><p>휴대폰 카메라로<br>QR을 찍어도 돼요</p>
   </div>
 </section>
 
@@ -175,6 +187,7 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
     <div class="row hl"><span>③ 주문 코드</span><div>입력 칸에 <b class="code">BR-3D10-K7Q2</b> 붙여넣기</div></div>
   </div>
   <p class="lead" style="margin-top:24px;font-size:20px">옵션·수량이 코드와 다르면 결제 후 네이버 톡톡으로 연락드려요.<br>주문 코드는 발급 후 7일 동안, 한 번만 쓸 수 있어요.</p>
+  <p class="lead" style="margin-top:14px;font-size:20px">시안 만들기: <b><span class="tbd">brickrise.vercel.app</span></b></p>
 </section>
 
 <!-- 상세 5: 시작하기 -->
@@ -195,10 +208,12 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
     <div><b>시안과 실물은 조금 다를 수 있어요</b>시안 이미지는 AI로 만든 예시예요. 블럭 색상은 정해진 36색 중 가장 가까운 색으로 바뀌어 색감·디테일·크기에 차이가 있을 수 있어요.</div>
     <div><b>구성품</b>MYTOYS 디폼블럭 (8×8×7mm), 색상별 여분 포함, QR 조립 설명서 안내지 1장.<br>브릭라이즈는 MYTOYS와 제휴 관계가 없어요.</div>
     <div><b>안전 정보</b>KC 안전확인 신고번호 <span class="tbd">확정 후 기입</span> · 사용 연령 <span class="tbd">확정 후 기입</span><br>작은 부품이 있어 삼킬 위험이 있으니 만 3세 미만 어린이의 손에 닿지 않게 해 주세요.</div>
-    <div><b>배송</b>결제 확인 후 <span class="tbd">○영업일</span> 안에 제작해 발송해요. 블럭이 모자라거나 궁금한 점은 <b style="display:inline;font-size:20px">네이버 톡톡</b>으로 문의해 주세요.</div>
+    <div><b>배송</b>결제 확인 후 2~5일 안에 제작해 발송해요. 블럭이 모자라거나 궁금한 점은 <b style="display:inline;font-size:20px">네이버 톡톡</b>으로 문의해 주세요.</div>
   </div>
   <p class="foot">사진은 시안 제작과 주문 처리에만 쓰이고, 정해진 기간이 지나면 파기돼요.</p>
 </section>
+
+</div><!-- /#detail -->
 
 <script src="sample-data.js"></script>
 <script>
@@ -246,7 +261,7 @@ table.t td{padding:14px 10px;text-align:center;border-bottom:1px solid var(--lin
   const photoUrl = "../../assets/sample_controller_photo.jpg";
   const img = await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=photoUrl});
   document.querySelectorAll("img.sample-photo").forEach(e=>e.src=photoUrl);
-  document.getElementById("qr").src = "qr.svg";
+  document.querySelectorAll("#qr, img.qr").forEach(e => e.src = "qr.svg");
   const models = { solid150: sample("150"), solid100: sample("100"), flat100: flatFrom(img, 12) };
   document.querySelectorAll("canvas[data-model]").forEach(cv=>{
     const m = models[cv.dataset.model], w=+cv.dataset.w, h=+cv.dataset.h;

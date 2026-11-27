@@ -27,7 +27,8 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
   await page.goto(`http://127.0.0.1:${port}/marketing/poster/poster.html`);
   await page.waitForSelector("body[data-ready='1']", { timeout: 30000 });
   fs.mkdirSync(OUT, { recursive: true });
-  for (const el of await page.$$("section[data-out]")) {
+  // 섹션별 PNG + 상세페이지 통 1장(#detail)
+  for (const el of await page.$$("[data-out]")) {
     const name = await el.getAttribute("data-out");
     await el.screenshot({ path: path.join(OUT, name) });
     console.log("saved", name);
